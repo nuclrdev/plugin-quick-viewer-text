@@ -38,6 +38,8 @@ public class TextQuickViewProvider implements QuickViewProvider {
 			"cs", "go", "rs", "php",
 			"kt", "scala", "groovy", "gradle",
 			"lua", "perl", "pl", "dart", "sql",
+			//crypto
+			"pub", "ppk",
 			// Shells / scripts
 			"sh", "bash", "bat", "cmd", "ps1",
 			// Dotfiles (PathQuickViewItem returns e.g. "gitignore" for ".gitignore")
@@ -84,6 +86,6 @@ public class TextQuickViewProvider implements QuickViewProvider {
 
 	@Override
 	public int priority() {
-		return 50;
+		return 1;
 	}
 }
