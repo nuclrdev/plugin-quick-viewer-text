@@ -26,7 +26,7 @@ final class TextFileSupport {
 			"kt", "scala", "groovy", "gradle",
 			"lua", "perl", "pl", "dart", "sql",
 			// Crypto
-			"pub", "ppk",
+			"pub", "ppk", "pem",
 			// Shells / scripts
 			"sh", "bash", "bat", "cmd", "ps1");
 
