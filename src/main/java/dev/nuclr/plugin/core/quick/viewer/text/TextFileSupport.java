@@ -25,13 +25,14 @@ final class TextFileSupport {
 			"cs", "go", "rs", "php",
 			"kt", "scala", "groovy", "gradle",
 			"lua", "perl", "pl", "dart", "sql",
+			"mf",
 			// Crypto
 			"pub", "ppk", "pem",
 			// Shells / scripts
 			"sh", "bash", "bat", "cmd", "ps1");
 
 	private static final Set<String> TEXT_FILENAMES = Set.of(
-			"license", "mf",
+			"license",
 			"dockerfile", "mvnw",
 			"gitignore", "gitattributes", "meta");
 
