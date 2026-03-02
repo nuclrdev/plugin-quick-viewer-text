@@ -1,6 +1,5 @@
 package dev.nuclr.plugin.core.quick.viewer.text;
 
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.swing.JComponent;
@@ -20,31 +19,6 @@ import dev.nuclr.plugin.QuickViewProvider;
  */
 public class TextQuickViewProvider implements QuickViewProvider {
 
-	static final Set<String> TEXT_EXTENSIONS = Set.of(
-			// Plain text / markup
-			"txt", "md", "log", "csv",
-			"html", "htm", "css", "xml", "svg", "jsp",
-			// Data / config
-			"json", "yaml", "yml", "toml",
-			"ini", "conf", "cfg", "properties", "prefs", "pref",
-			// IDE / project files
-			"classpath", "project", "factorypath",
-			"csproj", "vsconfig", "firebaserc",
-			// Web / scripting
-			"js", "mjs", "ts", "tsx",
-			// System languages
-			"java", "py", "rb",
-			"c", "cpp", "h", "hpp",
-			"cs", "go", "rs", "php",
-			"kt", "scala", "groovy", "gradle",
-			"lua", "perl", "pl", "dart", "sql",
-			//crypto
-			"pub", "ppk",
-			// Shells / scripts
-			"sh", "bash", "bat", "cmd", "ps1",
-			// Dotfiles (PathQuickViewItem returns e.g. "gitignore" for ".gitignore")
-			"gitignore", "gitattributes", "meta", "dockerfile");
-
 	private TextQuickViewPanel panel;
 
 	@Override
@@ -54,7 +28,7 @@ public class TextQuickViewProvider implements QuickViewProvider {
 
 	@Override
 	public boolean matches(QuickViewItem item) {
-		return TEXT_EXTENSIONS.contains(item.extension().toLowerCase());
+		return TextFileSupport.matches(item.name()) || TextFileSupport.matchesExtension(item.extension());
 	}
 
 	@Override

@@ -7,7 +7,6 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.swing.JPanel;
@@ -27,60 +26,6 @@ import lombok.extern.slf4j.Slf4j;
 public class TextQuickViewPanel extends JPanel {
 
 	private static final long MAX_FILE_SIZE = 10L * 1024 * 1024; // 10 MB
-
-	private static final Map<String, String> EXTENSION_TO_SYNTAX = Map.ofEntries(
-			Map.entry("java",        SyntaxConstants.SYNTAX_STYLE_JAVA),
-			Map.entry("js",          SyntaxConstants.SYNTAX_STYLE_JAVASCRIPT),
-			Map.entry("mjs",         SyntaxConstants.SYNTAX_STYLE_JAVASCRIPT),
-			Map.entry("ts",          SyntaxConstants.SYNTAX_STYLE_TYPESCRIPT),
-			Map.entry("tsx",         SyntaxConstants.SYNTAX_STYLE_TYPESCRIPT),
-			Map.entry("json",        SyntaxConstants.SYNTAX_STYLE_JSON),
-			Map.entry("xml",         SyntaxConstants.SYNTAX_STYLE_XML),
-			Map.entry("svg",         SyntaxConstants.SYNTAX_STYLE_XML),
-			Map.entry("classpath",   SyntaxConstants.SYNTAX_STYLE_XML),
-			Map.entry("factorypath", SyntaxConstants.SYNTAX_STYLE_XML),
-			Map.entry("project",     SyntaxConstants.SYNTAX_STYLE_XML),
-			Map.entry("csproj",      SyntaxConstants.SYNTAX_STYLE_XML),
-			Map.entry("html",        SyntaxConstants.SYNTAX_STYLE_HTML),
-			Map.entry("htm",         SyntaxConstants.SYNTAX_STYLE_HTML),
-			Map.entry("jsp",         SyntaxConstants.SYNTAX_STYLE_HTML),
-			Map.entry("css",         SyntaxConstants.SYNTAX_STYLE_CSS),
-			Map.entry("py",          SyntaxConstants.SYNTAX_STYLE_PYTHON),
-			Map.entry("rb",          SyntaxConstants.SYNTAX_STYLE_RUBY),
-			Map.entry("sh",          SyntaxConstants.SYNTAX_STYLE_UNIX_SHELL),
-			Map.entry("bash",        SyntaxConstants.SYNTAX_STYLE_UNIX_SHELL),
-			Map.entry("bat",         SyntaxConstants.SYNTAX_STYLE_WINDOWS_BATCH),
-			Map.entry("cmd",         SyntaxConstants.SYNTAX_STYLE_WINDOWS_BATCH),
-			Map.entry("sql",         SyntaxConstants.SYNTAX_STYLE_SQL),
-			Map.entry("c",           SyntaxConstants.SYNTAX_STYLE_C),
-			Map.entry("h",           SyntaxConstants.SYNTAX_STYLE_C),
-			Map.entry("cpp",         SyntaxConstants.SYNTAX_STYLE_CPLUSPLUS),
-			Map.entry("hpp",         SyntaxConstants.SYNTAX_STYLE_CPLUSPLUS),
-			Map.entry("cs",          SyntaxConstants.SYNTAX_STYLE_CSHARP),
-			Map.entry("go",          SyntaxConstants.SYNTAX_STYLE_GO),
-			Map.entry("rs",          SyntaxConstants.SYNTAX_STYLE_RUST),
-			Map.entry("php",         SyntaxConstants.SYNTAX_STYLE_PHP),
-			Map.entry("yaml",        SyntaxConstants.SYNTAX_STYLE_YAML),
-			Map.entry("yml",         SyntaxConstants.SYNTAX_STYLE_YAML),
-			Map.entry("toml",        SyntaxConstants.SYNTAX_STYLE_YAML),
-			Map.entry("md",          SyntaxConstants.SYNTAX_STYLE_MARKDOWN),
-			Map.entry("properties",  SyntaxConstants.SYNTAX_STYLE_PROPERTIES_FILE),
-			Map.entry("ini",         SyntaxConstants.SYNTAX_STYLE_INI),
-			Map.entry("prefs",       SyntaxConstants.SYNTAX_STYLE_INI),
-			Map.entry("cfg",         SyntaxConstants.SYNTAX_STYLE_INI),
-			Map.entry("groovy",      SyntaxConstants.SYNTAX_STYLE_GROOVY),
-			Map.entry("gradle",      SyntaxConstants.SYNTAX_STYLE_GROOVY),
-			Map.entry("kt",          SyntaxConstants.SYNTAX_STYLE_KOTLIN),
-			Map.entry("scala",       SyntaxConstants.SYNTAX_STYLE_SCALA),
-			Map.entry("lua",         SyntaxConstants.SYNTAX_STYLE_LUA),
-			Map.entry("perl",        SyntaxConstants.SYNTAX_STYLE_PERL),
-			Map.entry("pl",          SyntaxConstants.SYNTAX_STYLE_PERL),
-			Map.entry("dart",        SyntaxConstants.SYNTAX_STYLE_DART),
-			Map.entry("dockerfile",  SyntaxConstants.SYNTAX_STYLE_DOCKERFILE),
-			Map.entry("csv",         SyntaxConstants.SYNTAX_STYLE_CSV),
-			Map.entry("vsconfig",    SyntaxConstants.SYNTAX_STYLE_JSON),
-			Map.entry("firebaserc",  SyntaxConstants.SYNTAX_STYLE_JSON)
-	);
 
 	private final RSyntaxTextArea textArea;
 
@@ -173,8 +118,7 @@ public class TextQuickViewPanel extends JPanel {
 	}
 
 	private void setText(String filename, String text) {
-		String ext = extension(filename);
-		String style = EXTENSION_TO_SYNTAX.getOrDefault(ext, SyntaxConstants.SYNTAX_STYLE_NONE);
+		String style = TextFileSupport.syntaxStyle(filename);
 
 		// Replace the document entirely so the old token-factory pool can be GC'd.
 		// Text is inserted before setDocument() so no undo records are created.
@@ -208,9 +152,4 @@ public class TextQuickViewPanel extends JPanel {
 		return false;
 	}
 
-	/** Returns the lowercase extension of {@code filename}, or {@code ""} if none. */
-	private static String extension(String filename) {
-		int dot = filename.lastIndexOf('.');
-		return dot > 0 ? filename.substring(dot + 1).toLowerCase() : "";
-	}
 }
