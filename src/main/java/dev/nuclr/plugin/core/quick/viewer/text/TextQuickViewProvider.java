@@ -4,6 +4,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.swing.JComponent;
 
+import dev.nuclr.plugin.PluginTheme;
 import dev.nuclr.plugin.QuickViewItem;
 import dev.nuclr.plugin.QuickViewProvider;
 
@@ -20,6 +21,7 @@ import dev.nuclr.plugin.QuickViewProvider;
 public class TextQuickViewProvider implements QuickViewProvider {
 
 	private TextQuickViewPanel panel;
+	private PluginTheme theme;
 
 	@Override
 	public String getPluginClass() {
@@ -35,8 +37,17 @@ public class TextQuickViewProvider implements QuickViewProvider {
 	public JComponent getPanel() {
 		if (panel == null) {
 			panel = new TextQuickViewPanel();
+			panel.applyTheme(theme);
 		}
 		return panel;
+	}
+
+	@Override
+	public void applyTheme(PluginTheme theme) {
+		this.theme = theme;
+		if (panel != null) {
+			panel.applyTheme(theme);
+		}
 	}
 
 	@Override

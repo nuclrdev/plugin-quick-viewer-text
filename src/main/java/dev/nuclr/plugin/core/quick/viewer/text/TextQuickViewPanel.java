@@ -1,6 +1,7 @@
 package dev.nuclr.plugin.core.quick.viewer.text;
 
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.Font;
 import java.io.IOException;
 import java.io.InputStream;
@@ -19,6 +20,7 @@ import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
 import org.fife.ui.rsyntaxtextarea.Theme;
 import org.fife.ui.rtextarea.RTextScrollPane;
 
+import dev.nuclr.plugin.PluginTheme;
 import dev.nuclr.plugin.QuickViewItem;
 import lombok.extern.slf4j.Slf4j;
 
@@ -28,6 +30,7 @@ public class TextQuickViewPanel extends JPanel {
 	private static final long MAX_FILE_SIZE = 10L * 1024 * 1024; // 10 MB
 
 	private final RSyntaxTextArea textArea;
+	private final RTextScrollPane scroll;
 
 	public TextQuickViewPanel() {
 		super(new BorderLayout());
@@ -50,11 +53,38 @@ public class TextQuickViewPanel extends JPanel {
 		textArea.setTabsEmulated(false);
 		textArea.setEditable(false);
 
-		var scroll = new RTextScrollPane(textArea);
+		scroll = new RTextScrollPane(textArea);
 		scroll.setLineNumbersEnabled(true);
 		SwingUtilities.updateComponentTreeUI(scroll);
 
 		add(scroll, BorderLayout.CENTER);
+	}
+
+	public void applyTheme(PluginTheme theme) {
+		if (theme == null) {
+			return;
+		}
+
+		Color background = theme.color("Panel.background", getBackground());
+		Color foreground = theme.color("Panel.foreground", textArea.getForeground());
+		Color selectionBackground = theme.color("Table.selectionBackground", textArea.getSelectionColor());
+		Color selectionForeground = theme.color("Table.selectionForeground", textArea.getSelectedTextColor());
+		Color gutterBackground = theme.color("TableHeader.background", background);
+		Color gutterForeground = theme.color("Label.foreground", foreground);
+
+		setBackground(background);
+		scroll.setBackground(background);
+		scroll.getViewport().setBackground(background);
+		scroll.getGutter().setBackground(gutterBackground);
+		scroll.getGutter().setLineNumberColor(gutterForeground);
+
+		textArea.setBackground(background);
+		textArea.setForeground(foreground);
+		textArea.setCaretColor(foreground);
+		textArea.setSelectionColor(selectionBackground);
+		textArea.setSelectedTextColor(selectionForeground);
+		textArea.setCurrentLineHighlightColor(theme.color("Table.gridColor", gutterBackground));
+		textArea.setFont(theme.defaultFont());
 	}
 
 	/**
