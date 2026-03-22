@@ -5,9 +5,9 @@ import java.awt.Color;
 import java.awt.Font;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.swing.JPanel;
@@ -20,8 +20,8 @@ import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
 import org.fife.ui.rsyntaxtextarea.Theme;
 import org.fife.ui.rtextarea.RTextScrollPane;
 
+import dev.nuclr.plugin.PluginPathResource;
 import dev.nuclr.plugin.PluginTheme;
-import dev.nuclr.plugin.QuickViewItem;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -95,33 +95,27 @@ public class TextQuickViewPanel extends JPanel {
 	 *         error message), {@code false} if the item should not be shown here
 	 *         (e.g. binary content detected)
 	 */
-	public boolean load(QuickViewItem item, AtomicBoolean cancelled) {
-		if (item.sizeBytes() > MAX_FILE_SIZE) {
-			log.warn("File too large for text quick view: {} ({} bytes)", item.name(), item.sizeBytes());
-			showMessage(item.name(), "File is too large to display.", cancelled);
+	public boolean load(PluginPathResource item, AtomicBoolean cancelled) {
+		if (item.getSizeBytes() > MAX_FILE_SIZE) {
+			log.warn("File too large for text quick view: {} ({} bytes)", item.getName(), item.getSizeBytes());
+			showMessage(item.getName(), "File is too large to display.", cancelled);
 			return true;
 		}
 
 		if (isBinary(item)) {
-			log.debug("Binary content detected, skipping text view: {}", item.name());
+			log.debug("Binary content detected, skipping text view: {}", item.getName());
 			return false;
 		}
 
 		if (cancelled.get()) return false;
 
 		String content;
-		try {
-			Path path = item.path();
-			if (path != null) {
-				content = Files.readString(path, StandardCharsets.UTF_8);
-			} else {
-				try (var in = item.openStream()) {
-					content = new String(in.readAllBytes(), StandardCharsets.UTF_8);
-				}
-			}
+		try (InputStream in = item.openStream();
+				Reader reader = new InputStreamReader(in, StandardCharsets.UTF_8)) {
+			content = readAll(reader, cancelled);
 		} catch (Exception e) {
-			log.error("Failed to read file: {}", item.name(), e);
-			showMessage(item.name(), "Error reading file: " + e.getMessage(), cancelled);
+			log.error("Failed to read file: {}", item.getName(), e);
+			showMessage(item.getName(), "Error reading file: " + e.getMessage(), cancelled);
 			return true;
 		}
 
@@ -129,7 +123,7 @@ public class TextQuickViewPanel extends JPanel {
 
 		final String text = content;
 		SwingUtilities.invokeLater(() -> {
-			if (!cancelled.get()) setText(item.name(), text);
+			if (!cancelled.get()) setText(item.getName(), text);
 		});
 		return true;
 	}
@@ -169,7 +163,7 @@ public class TextQuickViewPanel extends JPanel {
 	 * Scans the first 8 KB for null bytes. Null bytes reliably indicate binary
 	 * content because they are not valid in any text encoding.
 	 */
-	private static boolean isBinary(QuickViewItem item) {
+	private static boolean isBinary(PluginPathResource item) {
 		byte[] buf = new byte[8192];
 		try (InputStream in = item.openStream()) {
 			int read = in.read(buf);
@@ -180,6 +174,19 @@ public class TextQuickViewPanel extends JPanel {
 			// Unreadable → let the main read attempt fail with a proper error
 		}
 		return false;
+	}
+
+	private static String readAll(Reader reader, AtomicBoolean cancelled) throws IOException {
+		StringBuilder sb = new StringBuilder();
+		char[] buffer = new char[8192];
+		int read;
+		while ((read = reader.read(buffer)) != -1) {
+			if (cancelled.get()) {
+				break;
+			}
+			sb.append(buffer, 0, read);
+		}
+		return sb.toString();
 	}
 
 }
