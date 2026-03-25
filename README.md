@@ -1,23 +1,25 @@
-# Text Quick Viewer
+# ⚡ Text Quick Viewer
 
-A [Nuclr Commander](https://nuclr.dev) plugin that renders plain text and source code files with syntax highlighting directly in the quick-view panel. Press **Ctrl+Q** on any supported file to preview it without leaving the file manager.
+> Syntax-highlighted instant previews for text and source files inside [Nuclr Commander](https://nuclr.dev).
 
----
+No tab switching. No app hopping. Just hit **Ctrl+Q** and get the file in front of you, fast. 😎
 
-## Features
+![Text Quick Viewer screenshot](images/screenshots-1.jpg)
 
-- **Syntax highlighting** — 50+ languages and file formats via RSyntaxTextArea
-- **Dark theme** — matches the Commander UI out of the box
-- **Line numbers** — shown in the gutter for easy reference
-- **Code folding** — collapse blocks in languages that support it
-- **10 MB guard** — files larger than 10 MB display a size warning instead of freezing the UI
-- **Binary detection** — null-byte scan of the first 8 KB silently skips binary files so the next provider (or the no-provider card) is shown instead
-- **NIO.2 compatible** — works inside ZIP and JAR archives (reads via `QuickViewItem.path()` or `openStream()` for non-local filesystems)
-- **Cancellation-aware** — switching files mid-load immediately aborts the in-flight read; no stale content ever reaches the UI
+## 🚀 What It Does
 
----
+Text Quick Viewer turns Nuclr Commander into a slick code-and-text preview machine:
 
-## Supported File Types
+- 🔥 Syntax highlighting for 50+ languages and formats via RSyntaxTextArea
+- 🧭 Line numbers for quick scanning and reference
+- 🪄 Code folding where the language supports it
+- 🌑 Dark styling that fits Commander without looking bolted on
+- 🛡️ Large-file guard that stops previews over 10 MB from freezing the UI
+- 🧪 Binary-file detection that quietly skips files that should not be rendered as text
+- 📦 NIO.2 support, including files inside ZIP and JAR archives
+- ⛔ Cancellation-aware loading so switching files does not leave stale content behind
+
+## 🎯 Supported File Types
 
 | Category | Extensions |
 |----------|-----------|
@@ -33,77 +35,84 @@ A [Nuclr Commander](https://nuclr.dev) plugin that renders plain text and source
 | Dotfiles | `.gitignore`, `.gitattributes`, `.meta` |
 | Container | `dockerfile` |
 
----
+## ⚙️ Build
 
-## Building
+Requires **Java 21+** and **Maven 3.9+**.
 
-Requires **Java 21+** and **Maven 3.9+**. The plugin SDK must be installed first:
+Install the Nuclr plugin SDK first:
 
 ```bash
-# 1. Install the SDK (one-time)
-cd ../../..   # → nuclr/sources/plugins-sdk
+# 1. One-time SDK install
+cd ../../..
 mvn clean install
 
-# 2. Build the plugin ZIP (no signing)
+# 2. Build this plugin
 cd plugins/core/quick-viewer-text
 mvn clean package -Dmaven.verify.skip=true
-# Output: target/quick-view-text-1.0.0.zip
 ```
 
-### Building with signing
+Output:
 
-Signing requires the Nuclr keystore at `C:/nuclr/key/nuclr-signing.p12`:
+```text
+target/quick-view-text-1.0.0.zip
+```
+
+### 🔐 Signed Build
+
+Signing expects the Nuclr keystore at `C:/nuclr/key/nuclr-signing.p12`.
 
 ```bash
 mvn clean verify -Djarsigner.storepass=<password>
-# Output: target/quick-view-text-1.0.0.zip
-#         target/quick-view-text-1.0.0.zip.sig
 ```
 
-### Deploy to Commander
+Outputs:
 
-Copy both artifacts to the Commander `plugins/` directory:
+```text
+target/quick-view-text-1.0.0.zip
+target/quick-view-text-1.0.0.zip.sig
+```
+
+### 📥 Deploy To Commander
+
+Copy the build artifacts into Commander’s `plugins/` directory:
 
 ```bash
-cp target/quick-view-text-1.0.0.zip     /path/to/commander/plugins/
+cp target/quick-view-text-1.0.0.zip /path/to/commander/plugins/
 cp target/quick-view-text-1.0.0.zip.sig /path/to/commander/plugins/
 ```
 
----
+## 🧠 How It Works
 
-## Architecture
-
-```
-TextQuickViewProvider         implements QuickViewProvider
-└── TextQuickViewPanel        Swing JPanel — RSyntaxTextArea wrapped in RTextScrollPane
+```text
+TextQuickViewProvider  -> decides whether a file looks like supported text
+TextQuickViewPanel     -> loads content and renders it in RSyntaxTextArea
 ```
 
-### Loading flow
+### Loading Flow
 
-1. `matches(item)` — extension lookup against `TEXT_EXTENSIONS` (no I/O)
-2. `open(item, cancelled)` → `TextQuickViewPanel.load(item, cancelled)` on a virtual thread:
-   - Size check (> 10 MB → show message, return `true`)
-   - Binary scan (null bytes in first 8 KB → return `false`, fall through)
-   - Read full content via `Path` (local / ZIP) or `InputStream` (remote)
-   - Dispatch `setText(filename, content)` to the EDT
-3. `setText` — selects syntax style from `EXTENSION_TO_SYNTAX`, builds a fresh `RSyntaxDocument`, swaps it into the text area (old document and its token-factory pool become GC-eligible)
+1. `matches(item)` checks the extension with no I/O.
+2. `open(item, cancelled)` delegates to `TextQuickViewPanel.load(...)` on a virtual thread.
+3. Loading performs:
+   - file-size guard
+   - binary scan of the first 8 KB
+   - content read via `Path` or `InputStream`
+   - EDT handoff for final UI update
+4. `setText(...)` selects syntax style and swaps in a fresh document.
 
-### Threading model
+### Threading Model
 
-- **EDT** — all Swing reads/writes, document swaps, repaints
-- **Virtual thread** — file I/O, binary detection (called by `QuickViewPanel`)
-- **Cancellation** — `AtomicBoolean cancelled` is checked before every dispatch to the EDT; setting it causes any pending `invokeLater` callbacks to no-op
+- `EDT`: Swing updates, document swaps, repainting
+- `Virtual thread`: file I/O and binary detection
+- `AtomicBoolean cancelled`: prevents stale UI updates when the user changes selection mid-load
 
-### Bundled dependencies (in `lib/`)
+### Bundled Dependency
 
 | Artifact | Version | License |
 |----------|---------|---------|
 | `rsyntaxtextarea` | 3.6.1 | BSD 3-Clause |
 
-> RSyntaxTextArea is already present in the Commander fat JAR. The copy in `lib/` is unused at runtime (parent-classloader delegation finds it first) but is included so the plugin remains self-contained if deployed to a different host.
+RSyntaxTextArea is already present in the Commander fat JAR. The bundled copy keeps the plugin self-contained if it is deployed into a different host environment.
 
----
+## 📄 License
 
-## License
-
-Apache 2.0 — see [LICENSE](LICENSE).
+Apache 2.0. See [LICENSE](LICENSE).
