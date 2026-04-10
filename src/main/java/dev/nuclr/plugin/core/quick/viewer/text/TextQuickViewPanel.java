@@ -20,8 +20,8 @@ import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
 import org.fife.ui.rsyntaxtextarea.Theme;
 import org.fife.ui.rtextarea.RTextScrollPane;
 
-import dev.nuclr.plugin.PluginPathResource;
-import dev.nuclr.plugin.PluginTheme;
+import dev.nuclr.platform.NuclrThemeScheme;
+import dev.nuclr.platform.plugin.NuclrResourcePath;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -60,7 +60,7 @@ public class TextQuickViewPanel extends JPanel {
 		add(scroll, BorderLayout.CENTER);
 	}
 
-	public void applyTheme(PluginTheme theme) {
+	public void applyTheme(NuclrThemeScheme theme) {
 		if (theme == null) {
 			return;
 		}
@@ -95,7 +95,7 @@ public class TextQuickViewPanel extends JPanel {
 	 *         error message), {@code false} if the item should not be shown here
 	 *         (e.g. binary content detected)
 	 */
-	public boolean load(PluginPathResource item, AtomicBoolean cancelled) {
+	public boolean load(NuclrResourcePath item, AtomicBoolean cancelled) {
 		if (item.getSizeBytes() > MAX_FILE_SIZE) {
 			log.warn("File too large for text quick view: {} ({} bytes)", item.getName(), item.getSizeBytes());
 			showMessage(item.getName(), "File is too large to display.", cancelled);
@@ -163,7 +163,7 @@ public class TextQuickViewPanel extends JPanel {
 	 * Scans the first 8 KB for null bytes. Null bytes reliably indicate binary
 	 * content because they are not valid in any text encoding.
 	 */
-	private static boolean isBinary(PluginPathResource item) {
+	private static boolean isBinary(NuclrResourcePath item) {
 		byte[] buf = new byte[8192];
 		try (InputStream in = item.openStream()) {
 			int read = in.read(buf);
