@@ -9,6 +9,7 @@ import dev.nuclr.platform.NuclrThemeScheme;
 import dev.nuclr.platform.plugin.NuclrMenuResource;
 import dev.nuclr.platform.plugin.NuclrPlugin;
 import dev.nuclr.platform.plugin.NuclrPluginContext;
+import dev.nuclr.platform.plugin.NuclrPluginRole;
 import dev.nuclr.platform.plugin.NuclrResourcePath;
 import lombok.extern.slf4j.Slf4j;
 
@@ -33,6 +34,7 @@ public class TextQuickViewProvider implements NuclrPlugin {
 	private TextQuickViewPanel panel;
 	private volatile AtomicBoolean currentCancelled;
 	private NuclrThemeScheme theme;
+	private NuclrResourcePath currentResource;
 
 	@Override
 	public JComponent panel() {
@@ -78,6 +80,7 @@ public class TextQuickViewProvider implements NuclrPlugin {
 		if (currentCancelled != null) {
 			currentCancelled.set(true);
 		}
+		currentResource = resource;
 		currentCancelled = cancelled;
 		panel();
 		return panel.load(resource, cancelled);
@@ -178,6 +181,21 @@ public class TextQuickViewProvider implements NuclrPlugin {
 
 	@Override
 	public void updateTheme(NuclrThemeScheme themeScheme) {
+	}
+
+	@Override
+	public NuclrPluginRole role() {
+		return NuclrPluginRole.QuickViewer;
+	}
+
+	@Override
+	public NuclrResourcePath getCurrentResource() {
+		return currentResource;
+	}
+
+	@Override
+	public String uuid() {
+		return id();
 	}
 
 }
