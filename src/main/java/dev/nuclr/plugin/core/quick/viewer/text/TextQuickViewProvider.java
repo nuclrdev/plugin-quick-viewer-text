@@ -53,6 +53,7 @@ public class TextQuickViewProvider implements NuclrPlugin {
 	@Override
 	public void load(NuclrPluginContext context, boolean isTemplate) {
 		this.context = context;
+		applyTheme(context != null ? context.getTheme() : null);
 	}
 
 	@Override
@@ -181,6 +182,7 @@ public class TextQuickViewProvider implements NuclrPlugin {
 
 	@Override
 	public void updateTheme(NuclrThemeScheme themeScheme) {
+		applyTheme(themeScheme);
 	}
 
 	@Override

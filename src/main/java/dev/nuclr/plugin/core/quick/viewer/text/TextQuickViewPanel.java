@@ -3,6 +3,7 @@ package dev.nuclr.plugin.core.quick.viewer.text;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Font;
+import java.awt.GraphicsEnvironment;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -28,6 +29,7 @@ import lombok.extern.slf4j.Slf4j;
 public class TextQuickViewPanel extends JPanel {
 
 	private static final long MAX_FILE_SIZE = 10L * 1024 * 1024; // 10 MB
+	private static final String PREFERRED_EDITOR_FONT = "JetBrains Mono";
 
 	private final RSyntaxTextArea textArea;
 	private final RTextScrollPane scroll;
@@ -46,7 +48,7 @@ public class TextQuickViewPanel extends JPanel {
 			log.warn("Could not load RSyntaxTextArea dark theme", e);
 		}
 
-		textArea.setFont(new Font("JetBrains Mono", Font.PLAIN, 13));
+		textArea.setFont(editorFont(null));
 		textArea.setCodeFoldingEnabled(true);
 		textArea.setAntiAliasingEnabled(true);
 		textArea.setTabSize(4);
@@ -67,8 +69,9 @@ public class TextQuickViewPanel extends JPanel {
 
 		Color background = theme.color("Panel.background", getBackground());
 		Color foreground = theme.color("Panel.foreground", textArea.getForeground());
-		Color selectionBackground = theme.color("Table.selectionBackground", textArea.getSelectionColor());
-		Color selectionForeground = theme.color("Table.selectionForeground", textArea.getSelectedTextColor());
+		Color accentSelection = theme.color("Table.selectionBackground", textArea.getSelectionColor());
+		Color selectionBackground = blend(background, accentSelection, 0.26f);
+		Color selectionForeground = foreground;
 		Color gutterBackground = theme.color("TableHeader.background", background);
 		Color gutterForeground = theme.color("Label.foreground", foreground);
 
@@ -83,8 +86,8 @@ public class TextQuickViewPanel extends JPanel {
 		textArea.setCaretColor(foreground);
 		textArea.setSelectionColor(selectionBackground);
 		textArea.setSelectedTextColor(selectionForeground);
-		textArea.setCurrentLineHighlightColor(theme.color("Table.gridColor", gutterBackground));
-		textArea.setFont(theme.defaultFont());
+		textArea.setCurrentLineHighlightColor(blend(background, theme.color("Table.gridColor", gutterBackground), 0.35f));
+		textArea.setFont(editorFont(theme.defaultFont()));
 	}
 
 	/**
@@ -187,6 +190,31 @@ public class TextQuickViewPanel extends JPanel {
 			sb.append(buffer, 0, read);
 		}
 		return sb.toString();
+	}
+
+	private static Font editorFont(Font baseFont) {
+		Font fallback = baseFont != null ? baseFont : new Font(Font.MONOSPACED, Font.PLAIN, 13);
+		int size = Math.max(11, fallback.getSize());
+		String family = hasFontFamily(PREFERRED_EDITOR_FONT) ? PREFERRED_EDITOR_FONT : Font.MONOSPACED;
+		return new Font(family, Font.PLAIN, size);
+	}
+
+	private static boolean hasFontFamily(String family) {
+		for (String name : GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames()) {
+			if (family.equalsIgnoreCase(name)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private static Color blend(Color base, Color overlay, float overlayWeight) {
+		float clamped = Math.max(0f, Math.min(1f, overlayWeight));
+		float baseWeight = 1f - clamped;
+		return new Color(
+				Math.round(base.getRed() * baseWeight + overlay.getRed() * clamped),
+				Math.round(base.getGreen() * baseWeight + overlay.getGreen() * clamped),
+				Math.round(base.getBlue() * baseWeight + overlay.getBlue() * clamped));
 	}
 
 }
