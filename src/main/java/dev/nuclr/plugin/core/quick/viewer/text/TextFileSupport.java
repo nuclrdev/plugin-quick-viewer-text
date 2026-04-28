@@ -127,6 +127,9 @@ final class TextFileSupport {
 		if (resource == null) {
 			return false;
 		}
+		if (isSvg(resource)) {
+			return false;
+		}
 		return matches(resource.getName())
 				|| matchesExtension(resource.getExtension())
 				|| matchesMimeType(resource.getMimeType())
@@ -207,6 +210,23 @@ final class TextFileSupport {
 	private static boolean hasShebang(NuclrResourcePath resource) {
 		byte[] sample = readSample(resource);
 		return sample != null && sample.length >= 2 && sample[0] == '#' && sample[1] == '!';
+	}
+
+	private static boolean isSvg(NuclrResourcePath resource) {
+		String extension = resource.getExtension();
+		if (extension != null && extension.equalsIgnoreCase("svg")) {
+			return true;
+		}
+		String mimeType = resource.getMimeType();
+		if (mimeType == null || mimeType.isBlank()) {
+			return false;
+		}
+		String normalized = mimeType.trim().toLowerCase();
+		int parameterSeparator = normalized.indexOf(';');
+		if (parameterSeparator >= 0) {
+			normalized = normalized.substring(0, parameterSeparator).trim();
+		}
+		return "image/svg+xml".equals(normalized);
 	}
 
 	private static byte[] readSample(NuclrResourcePath resource) {
