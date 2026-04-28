@@ -65,10 +65,7 @@ public class TextQuickViewProvider implements NuclrPlugin {
 
 	@Override
 	public boolean supports(NuclrResourcePath resource) {
-		if (resource == null) {
-			return false;
-		}
-		return TextFileSupport.matches(resource.getName()) || TextFileSupport.matchesExtension(resource.getExtension());
+		return TextFileSupport.supports(resource);
 	}
 
 	@Override

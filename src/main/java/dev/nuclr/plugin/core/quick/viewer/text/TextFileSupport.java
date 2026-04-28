@@ -1,11 +1,23 @@
 package dev.nuclr.plugin.core.quick.viewer.text;
 
+import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.CodingErrorAction;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Set;
 
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
 
+import dev.nuclr.platform.plugin.NuclrResourcePath;
+
 final class TextFileSupport {
+	private static final int SAMPLE_SIZE = 8192;
+	private static final double MIN_PRINTABLE_RATIO = 0.85d;
+	private static final double MAX_WHITESPACE_RATIO = 0.60d;
 
 	private static final Set<String> TEXT_EXTENSIONS = Set.of(
 			// Plain text / markup
@@ -33,8 +45,19 @@ final class TextFileSupport {
 
 	private static final Set<String> TEXT_FILENAMES = Set.of(
 			"license",
+			"whatsnew",
 			"dockerfile", "mvnw",
 			"gitignore", "gitattributes", "meta");
+
+	private static final Set<String> TEXT_MIME_TYPES = Set.of(
+			"application/json",
+			"application/ld+json",
+			"application/sql",
+			"application/toml",
+			"application/x-httpd-php",
+			"application/x-sh",
+			"application/x-yaml",
+			"application/xml");
 
 	private static final Map<String, String> SYNTAX_BY_EXTENSION = Map.ofEntries(
 			Map.entry("java",        SyntaxConstants.SYNTAX_STYLE_JAVA),
@@ -100,6 +123,17 @@ final class TextFileSupport {
 	private TextFileSupport() {
 	}
 
+	static boolean supports(NuclrResourcePath resource) {
+		if (resource == null) {
+			return false;
+		}
+		return matches(resource.getName())
+				|| matchesExtension(resource.getExtension())
+				|| matchesMimeType(resource.getMimeType())
+				|| hasShebang(resource)
+				|| looksLikeUtf8Text(resource);
+	}
+
 	static boolean matches(String filename) {
 		if (filename == null || filename.isBlank()) {
 			return false;
@@ -114,6 +148,36 @@ final class TextFileSupport {
 			return false;
 		}
 		return TEXT_EXTENSIONS.contains(extension.toLowerCase()); 
+	}
+
+	static boolean matchesMimeType(String mimeType) {
+		if (mimeType == null || mimeType.isBlank()) {
+			return false;
+		}
+		String normalized = mimeType.trim().toLowerCase();
+		int parameterSeparator = normalized.indexOf(';');
+		if (parameterSeparator >= 0) {
+			normalized = normalized.substring(0, parameterSeparator).trim();
+		}
+		return normalized.startsWith("text/") || TEXT_MIME_TYPES.contains(normalized);
+	}
+
+	static boolean looksLikeUtf8Text(NuclrResourcePath resource) {
+		byte[] sample = readSample(resource);
+		if (sample == null) {
+			return false;
+		}
+		if (sample.length == 0) {
+			return true;
+		}
+		if (matchesBinarySignature(sample) || containsNullByte(sample)) {
+			return false;
+		}
+		String decoded = decodeUtf8(sample);
+		if (decoded == null || decoded.isEmpty()) {
+			return false;
+		}
+		return isLikelyHumanText(decoded);
 	}
 
 	static String syntaxStyle(String filename) {
@@ -138,5 +202,116 @@ final class TextFileSupport {
 		}
 		int dot = filename.lastIndexOf('.');
 		return dot > 0 ? filename.substring(dot + 1).toLowerCase() : "";
+	}
+
+	private static boolean hasShebang(NuclrResourcePath resource) {
+		byte[] sample = readSample(resource);
+		return sample != null && sample.length >= 2 && sample[0] == '#' && sample[1] == '!';
+	}
+
+	private static byte[] readSample(NuclrResourcePath resource) {
+		if (resource == null) {
+			return null;
+		}
+		try (InputStream in = resource.openStream()) {
+			return in.readNBytes(SAMPLE_SIZE);
+		} catch (Exception e) {
+			return null;
+		}
+	}
+
+	private static boolean containsNullByte(byte[] sample) {
+		for (byte b : sample) {
+			if (b == 0) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private static boolean matchesBinarySignature(byte[] sample) {
+		return startsWith(sample, 'M', 'Z')
+				|| startsWith(sample, 0x7F, 'E', 'L', 'F')
+				|| startsWith(sample, 'P', 'K', 0x03, 0x04)
+				|| startsWith(sample, 'P', 'K', 0x05, 0x06)
+				|| startsWith(sample, 'P', 'K', 0x07, 0x08)
+				|| startsWith(sample, 0x89, 'P', 'N', 'G')
+				|| startsWith(sample, 0xFF, 0xD8, 0xFF)
+				|| startsWith(sample, 'G', 'I', 'F', '8')
+				|| startsWith(sample, '%', 'P', 'D', 'F')
+				|| startsWith(sample, 0xCA, 0xFE, 0xBA, 0xBE)
+				|| startsWith(sample, 0xFE, 0xED, 0xFA, 0xCE)
+				|| startsWith(sample, 0xCE, 0xFA, 0xED, 0xFE)
+				|| startsWith(sample, 0xFE, 0xED, 0xFA, 0xCF)
+				|| startsWith(sample, 0xCF, 0xFA, 0xED, 0xFE)
+				|| startsWith(sample, 0xCA, 0xFE, 0xBA, 0xBF)
+				|| startsWith(sample, 0xBF, 0xBA, 0xFE, 0xCA);
+	}
+
+	private static boolean startsWith(byte[] sample, int... prefix) {
+		if (sample.length < prefix.length) {
+			return false;
+		}
+		for (int i = 0; i < prefix.length; i++) {
+			if ((sample[i] & 0xFF) != (prefix[i] & 0xFF)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	private static String decodeUtf8(byte[] sample) {
+		CharsetDecoder decoder = StandardCharsets.UTF_8.newDecoder()
+				.onMalformedInput(CodingErrorAction.REPORT)
+				.onUnmappableCharacter(CodingErrorAction.REPORT);
+		try {
+			CharBuffer decoded = decoder.decode(ByteBuffer.wrap(sample));
+			return decoded.toString();
+		} catch (CharacterCodingException e) {
+			return null;
+		}
+	}
+
+	private static boolean isLikelyHumanText(String decoded) {
+		int printable = 0;
+		int whitespace = 0;
+		int suspiciousControls = 0;
+		int considered = 0;
+		for (int i = 0; i < decoded.length(); i++) {
+			char ch = decoded.charAt(i);
+			if (Character.isHighSurrogate(ch) && i + 1 < decoded.length()
+					&& Character.isLowSurrogate(decoded.charAt(i + 1))) {
+				int codePoint = Character.toCodePoint(ch, decoded.charAt(i + 1));
+				i++;
+				considered++;
+				if (Character.isWhitespace(codePoint)) {
+					whitespace++;
+					printable++;
+				} else if (!Character.isISOControl(codePoint)) {
+					printable++;
+				}
+				continue;
+			}
+			considered++;
+			if (ch == '\n' || ch == '\r' || ch == '\t' || ch == '\f') {
+				whitespace++;
+				printable++;
+				continue;
+			}
+			if (Character.isISOControl(ch)) {
+				suspiciousControls++;
+				continue;
+			}
+			if (Character.isWhitespace(ch)) {
+				whitespace++;
+			}
+			printable++;
+		}
+		if (considered == 0 || suspiciousControls > 0) {
+			return false;
+		}
+		double printableRatio = printable / (double) considered;
+		double whitespaceRatio = whitespace / (double) considered;
+		return printableRatio >= MIN_PRINTABLE_RATIO && whitespaceRatio <= MAX_WHITESPACE_RATIO;
 	}
 }
