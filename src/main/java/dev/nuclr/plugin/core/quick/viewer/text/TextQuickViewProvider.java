@@ -1,16 +1,14 @@
 package dev.nuclr.plugin.core.quick.viewer.text;
 
-import java.util.List;
+import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.swing.JComponent;
 
 import dev.nuclr.platform.NuclrThemeScheme;
-import dev.nuclr.platform.plugin.NuclrMenuResource;
-import dev.nuclr.platform.plugin.NuclrPlugin;
 import dev.nuclr.platform.plugin.NuclrPluginContext;
-import dev.nuclr.platform.plugin.NuclrPluginRole;
-import dev.nuclr.platform.plugin.NuclrResourcePath;
+import dev.nuclr.platform.plugin.NuclrResource;
+import dev.nuclr.platform.plugin.QuickViewNuclrPlugin;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -18,7 +16,8 @@ import lombok.extern.slf4j.Slf4j;
  *
  * <p>
  * Matches by file extension. Binary detection (null-byte scan) happens inside
- * {@link #open} so that {@link #matches} stays fast and allocation-free.
+ * {@link #openResource} so that {@link #supports} stays fast and
+ * allocation-free.
  *
  * <p>
  * Priority 50 ensures that specialised providers (image, PDF, …) with lower
@@ -26,15 +25,13 @@ import lombok.extern.slf4j.Slf4j;
  * extension.
  */
 @Slf4j
-public class TextQuickViewProvider implements NuclrPlugin {
-
-	private static final String THEME_UPDATED_EVENT_TYPE = "dev.nuclr.platform.theme.updated";
+public class TextQuickViewProvider implements QuickViewNuclrPlugin {
 
 	private NuclrPluginContext context;
 	private TextQuickViewPanel panel;
 	private volatile AtomicBoolean currentCancelled;
 	private NuclrThemeScheme theme;
-	private NuclrResourcePath currentResource;
+	private NuclrResource currentResource;
 
 	@Override
 	public JComponent panel() {
@@ -46,14 +43,18 @@ public class TextQuickViewProvider implements NuclrPlugin {
 	}
 
 	@Override
-	public List<NuclrMenuResource> menuItems(NuclrResourcePath source) {
-		return List.of();
+	public void preinit(NuclrPluginContext context) {
+		this.context = context;
+		applyTheme(context != null ? context.getTheme() : null);
 	}
 
 	@Override
-	public void load(NuclrPluginContext context, boolean isTemplate) {
-		this.context = context;
-		applyTheme(context != null ? context.getTheme() : null);
+	public void init() {
+	}
+
+	@Override
+	public NuclrPluginContext getContext() {
+		return this.context;
 	}
 
 	@Override
@@ -64,8 +65,8 @@ public class TextQuickViewProvider implements NuclrPlugin {
 	}
 
 	@Override
-	public boolean supports(NuclrResourcePath resource) {
-		return TextFileSupport.supports(resource);
+	public boolean supports(Path path) {
+		return TextFileSupport.supports(path);
 	}
 
 	@Override
@@ -74,7 +75,7 @@ public class TextQuickViewProvider implements NuclrPlugin {
 	}
 
 	@Override
-	public boolean openResource(NuclrResourcePath resource, AtomicBoolean cancelled) {
+	public boolean openResource(NuclrResource resource, AtomicBoolean cancelled) {
 		if (currentCancelled != null) {
 			currentCancelled.set(true);
 		}
@@ -173,7 +174,7 @@ public class TextQuickViewProvider implements NuclrPlugin {
 	}
 
 	@Override
-	public Developer type() {
+	public Developer developer() {
 		return Developer.Official;
 	}
 
@@ -183,12 +184,7 @@ public class TextQuickViewProvider implements NuclrPlugin {
 	}
 
 	@Override
-	public NuclrPluginRole role() {
-		return NuclrPluginRole.QuickViewer;
-	}
-
-	@Override
-	public NuclrResourcePath getCurrentResource() {
+	public NuclrResource getCurrentResource() {
 		return currentResource;
 	}
 

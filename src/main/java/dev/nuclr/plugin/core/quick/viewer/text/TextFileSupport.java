@@ -7,12 +7,11 @@ import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.Set;
 
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
-
-import dev.nuclr.platform.plugin.NuclrResourcePath;
 
 final class TextFileSupport {
 	private static final int SAMPLE_SIZE = 8192;
@@ -48,16 +47,6 @@ final class TextFileSupport {
 			"whatsnew",
 			"dockerfile", "mvnw",
 			"gitignore", "gitattributes", "meta");
-
-	private static final Set<String> TEXT_MIME_TYPES = Set.of(
-			"application/json",
-			"application/ld+json",
-			"application/sql",
-			"application/toml",
-			"application/x-httpd-php",
-			"application/x-sh",
-			"application/x-yaml",
-			"application/xml");
 
 	private static final Map<String, String> SYNTAX_BY_EXTENSION = Map.ofEntries(
 			Map.entry("java",        SyntaxConstants.SYNTAX_STYLE_JAVA),
@@ -123,18 +112,17 @@ final class TextFileSupport {
 	private TextFileSupport() {
 	}
 
-	static boolean supports(NuclrResourcePath resource) {
-		if (resource == null) {
+	static boolean supports(Path path) {
+		if (path == null) {
 			return false;
 		}
-		if (isSvg(resource)) {
+		if (isSvg(path)) {
 			return false;
 		}
-		return matches(resource.getName())
-				|| matchesExtension(resource.getExtension())
-				|| matchesMimeType(resource.getMimeType())
-				|| hasShebang(resource)
-				|| looksLikeUtf8Text(resource);
+		return matches(getName(path))
+				|| matchesExtension(extension(getName(path)))
+				|| hasShebang(path)
+				|| looksLikeUtf8Text(path);
 	}
 
 	static boolean matches(String filename) {
@@ -153,20 +141,8 @@ final class TextFileSupport {
 		return TEXT_EXTENSIONS.contains(extension.toLowerCase()); 
 	}
 
-	static boolean matchesMimeType(String mimeType) {
-		if (mimeType == null || mimeType.isBlank()) {
-			return false;
-		}
-		String normalized = mimeType.trim().toLowerCase();
-		int parameterSeparator = normalized.indexOf(';');
-		if (parameterSeparator >= 0) {
-			normalized = normalized.substring(0, parameterSeparator).trim();
-		}
-		return normalized.startsWith("text/") || TEXT_MIME_TYPES.contains(normalized);
-	}
-
-	static boolean looksLikeUtf8Text(NuclrResourcePath resource) {
-		byte[] sample = readSample(resource);
+	static boolean looksLikeUtf8Text(Path path) {
+		byte[] sample = readSample(path);
 		if (sample == null) {
 			return false;
 		}
@@ -207,33 +183,24 @@ final class TextFileSupport {
 		return dot > 0 ? filename.substring(dot + 1).toLowerCase() : "";
 	}
 
-	private static boolean hasShebang(NuclrResourcePath resource) {
+	private static boolean hasShebang(Path resource) {
 		byte[] sample = readSample(resource);
 		return sample != null && sample.length >= 2 && sample[0] == '#' && sample[1] == '!';
 	}
 
-	private static boolean isSvg(NuclrResourcePath resource) {
-		String extension = resource.getExtension();
-		if (extension != null && extension.equalsIgnoreCase("svg")) {
-			return true;
-		}
-		String mimeType = resource.getMimeType();
-		if (mimeType == null || mimeType.isBlank()) {
-			return false;
-		}
-		String normalized = mimeType.trim().toLowerCase();
-		int parameterSeparator = normalized.indexOf(';');
-		if (parameterSeparator >= 0) {
-			normalized = normalized.substring(0, parameterSeparator).trim();
-		}
-		return "image/svg+xml".equals(normalized);
+	private static boolean isSvg(Path resource) {
+		return "svg".equals(extension(getName(resource)));
+	}
+	
+	static String getName(Path path) {
+		return path != null ? path.getFileName().toString() : path.toFile().getName();
 	}
 
-	private static byte[] readSample(NuclrResourcePath resource) {
+	private static byte[] readSample(Path resource) {
 		if (resource == null) {
 			return null;
 		}
-		try (InputStream in = resource.openStream()) {
+		try (InputStream in = java.nio.file.Files.newInputStream(resource)) {
 			return in.readNBytes(SAMPLE_SIZE);
 		} catch (Exception e) {
 			return null;
