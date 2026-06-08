@@ -8,6 +8,8 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import dev.nuclr.platform.plugin.NuclrResource;
+
 class TextFileSupportTest {
 
 	@Test
@@ -15,7 +17,7 @@ class TextFileSupportTest {
 		Path file = tempDir.resolve("WHATSNEW");
 		Files.writeString(file, "Nuclr Commander\n\n- Added quick view improvements\n");
 
-		assertTrue(TextFileSupport.supports(file));
+		assertTrue(TextFileSupport.supports(resource(file)));
 	}
 
 	@Test
@@ -23,7 +25,7 @@ class TextFileSupportTest {
 		Path file = tempDir.resolve("deploy");
 		Files.writeString(file, "#!/bin/sh\necho hello\n");
 
-		assertTrue(TextFileSupport.supports(file));
+		assertTrue(TextFileSupport.supports(resource(file)));
 	}
 
 	@Test
@@ -31,6 +33,17 @@ class TextFileSupportTest {
 		Path file = tempDir.resolve("archive");
 		Files.write(file, new byte[] { 'P', 'K', 3, 4, 20, 0 });
 
-		assertFalse(TextFileSupport.supports(file));
+		assertFalse(TextFileSupport.supports(resource(file)));
+	}
+
+	private static NuclrResource resource(Path path) {
+		NuclrResource resource = new NuclrResource(path) {
+			@Override
+			public java.io.InputStream openInputStream(java.nio.file.OpenOption... options) throws Exception {
+				return Files.newInputStream(getPath(), options);
+			}
+		};
+		resource.setName(path.getFileName().toString());
+		return resource;
 	}
 }

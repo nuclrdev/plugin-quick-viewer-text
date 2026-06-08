@@ -1,6 +1,5 @@
 package dev.nuclr.plugin.core.quick.viewer.text;
 
-import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.swing.JComponent;
@@ -65,8 +64,8 @@ public class TextQuickViewProvider implements QuickViewNuclrPlugin {
 	}
 
 	@Override
-	public boolean supports(Path path) {
-		return TextFileSupport.supports(path);
+	public boolean supports(NuclrResource resource) {
+		return TextFileSupport.supports(resource);
 	}
 
 	@Override
@@ -192,5 +191,12 @@ public class TextQuickViewProvider implements QuickViewNuclrPlugin {
 	public String uuid() {
 		return id();
 	}
+
+	@Override
+	public String getWindowTitle() {
+		return "Quick View: " + (currentResource != null ? currentResource.getName() : "");
+	}
+	
+	
 
 }

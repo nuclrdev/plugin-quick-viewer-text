@@ -113,8 +113,8 @@ public class TextQuickViewPanel extends JPanel {
 		if (cancelled.get()) return false;
 
 		String content;
-		try (InputStream in = java.nio.file.Files.newInputStream(item.getPath());
-				Reader reader = new InputStreamReader(in, StandardCharsets.UTF_8)) {
+		try (var in = item.openInputStream();
+				var reader = new InputStreamReader(in, StandardCharsets.UTF_8)) {
 			content = readAll(reader, cancelled);
 		} catch (Exception e) {
 			log.error("Failed to read file: {}", item.getName(), e);
@@ -168,7 +168,7 @@ public class TextQuickViewPanel extends JPanel {
 	 */
 	private static boolean isBinary(NuclrResource item) {
 		byte[] buf = new byte[8192];
-		try (InputStream in = java.nio.file.Files.newInputStream(item.getPath())) {
+		try (InputStream in = item.openInputStream()) {
 			int read = in.read(buf);
 			for (int i = 0; i < read; i++) {
 				if (buf[i] == 0) return true;

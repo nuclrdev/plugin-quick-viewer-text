@@ -1,6 +1,5 @@
 package dev.nuclr.plugin.core.quick.viewer.text;
 
-import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.CharacterCodingException;
@@ -12,6 +11,8 @@ import java.util.Map;
 import java.util.Set;
 
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
+
+import dev.nuclr.platform.plugin.NuclrResource;
 
 final class TextFileSupport {
 	private static final int SAMPLE_SIZE = 8192;
@@ -112,17 +113,20 @@ final class TextFileSupport {
 	private TextFileSupport() {
 	}
 
-	static boolean supports(Path path) {
+	static boolean supports(NuclrResource resource) {
+		
+		var path = resource.getPath();
 		if (path == null) {
 			return false;
 		}
 		if (isSvg(path)) {
 			return false;
 		}
-		return matches(getName(path))
+		return matches(resource.getName()) 
+				|| matches(getName(path))
 				|| matchesExtension(extension(getName(path)))
-				|| hasShebang(path)
-				|| looksLikeUtf8Text(path);
+				|| hasShebang(resource, path)
+				|| looksLikeUtf8Text(resource, path);
 	}
 
 	static boolean matches(String filename) {
@@ -141,8 +145,8 @@ final class TextFileSupport {
 		return TEXT_EXTENSIONS.contains(extension.toLowerCase()); 
 	}
 
-	static boolean looksLikeUtf8Text(Path path) {
-		byte[] sample = readSample(path);
+	static boolean looksLikeUtf8Text(NuclrResource resource, Path path) {
+		byte[] sample = readSample(resource);
 		if (sample == null) {
 			return false;
 		}
@@ -183,7 +187,7 @@ final class TextFileSupport {
 		return dot > 0 ? filename.substring(dot + 1).toLowerCase() : "";
 	}
 
-	private static boolean hasShebang(Path resource) {
+	private static boolean hasShebang(NuclrResource resource, Path path) {
 		byte[] sample = readSample(resource);
 		return sample != null && sample.length >= 2 && sample[0] == '#' && sample[1] == '!';
 	}
@@ -196,11 +200,11 @@ final class TextFileSupport {
 		return path != null ? path.getFileName().toString() : path.toFile().getName();
 	}
 
-	private static byte[] readSample(Path resource) {
+	private static byte[] readSample(NuclrResource resource) {
 		if (resource == null) {
 			return null;
 		}
-		try (InputStream in = java.nio.file.Files.newInputStream(resource)) {
+		try (var in = resource.openInputStream()) {
 			return in.readNBytes(SAMPLE_SIZE);
 		} catch (Exception e) {
 			return null;
