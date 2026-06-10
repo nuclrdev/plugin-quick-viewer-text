@@ -19,7 +19,7 @@ import lombok.extern.slf4j.Slf4j;
  * allocation-free.
  *
  * <p>
- * Priority 50 ensures that specialised providers (image, PDF, …) with lower
+ * Priority 50 ensures that specialised providers (image, PDF, â€¦) with lower
  * priority numbers are tried first when multiple providers could match the same
  * extension.
  */
@@ -119,7 +119,7 @@ public class TextQuickViewProvider implements QuickViewNuclrPlugin {
 
 	private String name = "Text Quick Viewer";
 	private String id = "dev.nuclr.plugin.core.quickviewer.text";
-	private String version = "1.0.0";
+	private final String version = loadVersion();
 	private String description = "Syntax-highlighted quick viewer for text and source code files.";
 	private String author = "Nuclr Development Team";
 	private String license = "Apache-2.0";
@@ -140,6 +140,16 @@ public class TextQuickViewProvider implements QuickViewNuclrPlugin {
 	@Override
 	public String version() {
 		return version;
+	}
+	private static String loadVersion() {
+		try (var stream = TextQuickViewProvider.class.getResourceAsStream("/plugin.properties")) {
+			if (stream == null) return "unknown";
+			var props = new java.util.Properties();
+			props.load(stream);
+			return props.getProperty("version", "unknown");
+		} catch (java.io.IOException e) {
+			return "unknown";
+		}
 	}
 
 	@Override
