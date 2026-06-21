@@ -3,7 +3,6 @@ package dev.nuclr.plugin.core.quick.viewer.text;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Font;
-import java.awt.GraphicsEnvironment;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -13,6 +12,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
+import javax.swing.UIManager;
 import javax.swing.text.BadLocationException;
 
 import org.fife.ui.rsyntaxtextarea.RSyntaxDocument;
@@ -29,8 +29,6 @@ import lombok.extern.slf4j.Slf4j;
 public class TextQuickViewPanel extends JPanel {
 
 	private static final long MAX_FILE_SIZE = 10L * 1024 * 1024; // 10 MB
-	private static final String PREFERRED_EDITOR_FONT = "JetBrains Mono";
-
 	private final RSyntaxTextArea textArea;
 	private final RTextScrollPane scroll;
 
@@ -48,7 +46,7 @@ public class TextQuickViewPanel extends JPanel {
 			log.warn("Could not load RSyntaxTextArea dark theme", e);
 		}
 
-		textArea.setFont(editorFont(null));
+		textArea.setFont(editorFont(UIManager.getFont("defaultFont")));
 		textArea.setCodeFoldingEnabled(true);
 		textArea.setAntiAliasingEnabled(true);
 		textArea.setTabSize(4);
@@ -63,6 +61,10 @@ public class TextQuickViewPanel extends JPanel {
 	}
 
 	public void applyTheme(NuclrThemeScheme theme) {
+		Font base = theme != null ? theme.defaultFont() : UIManager.getFont("defaultFont");
+		textArea.setFont(editorFont(base));
+		scroll.getGutter().setLineNumberFont(textArea.getFont());
+
 		if (theme == null) {
 			return;
 		}
@@ -87,7 +89,6 @@ public class TextQuickViewPanel extends JPanel {
 		textArea.setSelectionColor(selectionBackground);
 		textArea.setSelectedTextColor(selectionForeground);
 		textArea.setCurrentLineHighlightColor(blend(background, theme.color("Table.gridColor", gutterBackground), 0.35f));
-		textArea.setFont(editorFont(theme.defaultFont()));
 	}
 
 	/**
@@ -193,19 +194,7 @@ public class TextQuickViewPanel extends JPanel {
 	}
 
 	private static Font editorFont(Font baseFont) {
-		Font fallback = baseFont != null ? baseFont : new Font(Font.MONOSPACED, Font.PLAIN, 13);
-		int size = Math.max(11, fallback.getSize());
-		String family = hasFontFamily(PREFERRED_EDITOR_FONT) ? PREFERRED_EDITOR_FONT : Font.MONOSPACED;
-		return new Font(family, Font.PLAIN, size);
-	}
-
-	private static boolean hasFontFamily(String family) {
-		for (String name : GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames()) {
-			if (family.equalsIgnoreCase(name)) {
-				return true;
-			}
-		}
-		return false;
+		return baseFont != null ? baseFont : new Font(Font.MONOSPACED, Font.PLAIN, 13);
 	}
 
 	private static Color blend(Color base, Color overlay, float overlayWeight) {
