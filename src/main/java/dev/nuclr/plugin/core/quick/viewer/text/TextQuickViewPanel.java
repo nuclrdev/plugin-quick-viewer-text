@@ -37,14 +37,7 @@ public class TextQuickViewPanel extends JPanel {
 
 		textArea = new RSyntaxTextArea();
 
-		try (InputStream themeIn = getClass()
-				.getResourceAsStream("/org/fife/ui/rsyntaxtextarea/themes/dark.xml")) {
-			if (themeIn != null) {
-				Theme.load(themeIn).apply(textArea);
-			}
-		} catch (IOException e) {
-			log.warn("Could not load RSyntaxTextArea dark theme", e);
-		}
+		loadSyntaxTheme(true);
 
 		textArea.setFont(editorFont(UIManager.getFont("defaultFont")));
 		textArea.setCodeFoldingEnabled(true);
@@ -61,16 +54,22 @@ public class TextQuickViewPanel extends JPanel {
 	}
 
 	public void applyTheme(NuclrThemeScheme theme) {
-		Font base = theme != null ? theme.defaultFont() : UIManager.getFont("defaultFont");
-		textArea.setFont(editorFont(base));
-		scroll.getGutter().setLineNumberFont(textArea.getFont());
-
 		if (theme == null) {
+			textArea.setFont(editorFont(UIManager.getFont("defaultFont")));
+			scroll.getGutter().setLineNumberFont(textArea.getFont());
 			return;
 		}
 
 		Color background = theme.color("Panel.background", getBackground());
 		Color foreground = theme.color("Panel.foreground", textArea.getForeground());
+
+		// Load the bundled RSyntax palette whose token colors match the host
+		// background luminance, so highlighting stays readable on light themes.
+		// The background overrides below then nudge it to the exact host color.
+		loadSyntaxTheme(isDark(background));
+
+		textArea.setFont(editorFont(theme.defaultFont()));
+		scroll.getGutter().setLineNumberFont(textArea.getFont());
 		Color accentSelection = theme.color("Table.selectionBackground", textArea.getSelectionColor());
 		Color selectionBackground = blend(background, accentSelection, 0.26f);
 		Color selectionForeground = foreground;
@@ -191,6 +190,25 @@ public class TextQuickViewPanel extends JPanel {
 			sb.append(buffer, 0, read);
 		}
 		return sb.toString();
+	}
+
+	private void loadSyntaxTheme(boolean dark) {
+		String resource = dark
+				? "/org/fife/ui/rsyntaxtextarea/themes/dark.xml"
+				: "/org/fife/ui/rsyntaxtextarea/themes/default.xml";
+		try (InputStream themeIn = getClass().getResourceAsStream(resource)) {
+			if (themeIn != null) {
+				Theme.load(themeIn).apply(textArea);
+			}
+		} catch (IOException e) {
+			log.warn("Could not load RSyntaxTextArea theme: {}", resource, e);
+		}
+	}
+
+	/** Perceived-luminance test (ITU-R BT.601); below mid-grey counts as a dark background. */
+	private static boolean isDark(Color c) {
+		double luminance = 0.299 * c.getRed() + 0.587 * c.getGreen() + 0.114 * c.getBlue();
+		return luminance < 128;
 	}
 
 	private static Font editorFont(Font baseFont) {
