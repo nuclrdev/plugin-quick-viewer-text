@@ -54,27 +54,28 @@ public class TextQuickViewPanel extends JPanel {
 	}
 
 	public void applyTheme(NuclrThemeScheme theme) {
-		if (theme == null) {
-			textArea.setFont(editorFont(UIManager.getFont("defaultFont")));
-			scroll.getGutter().setLineNumberFont(textArea.getFont());
-			return;
-		}
-
-		Color background = theme.color("Panel.background", getBackground());
-		Color foreground = theme.color("Panel.foreground", textArea.getForeground());
+		// Colors come from the active look-and-feel (UIManager): the host installs
+		// the selected theme as the L&F and only overlays a scheme's *explicit*
+		// overrides on top. Built-in themes carry no color overrides, so reading
+		// solely from the scheme would yield stale defaults (e.g. black line
+		// numbers, a selection indistinguishable from the panel background).
+		Color background = uiColor(theme, "Panel.background", getBackground());
+		Color foreground = uiColor(theme, "Panel.foreground", textArea.getForeground());
 
 		// Load the bundled RSyntax palette whose token colors match the host
 		// background luminance, so highlighting stays readable on light themes.
-		// The background overrides below then nudge it to the exact host color.
+		// The overrides below then nudge it to the exact host colors.
 		loadSyntaxTheme(isDark(background));
 
-		textArea.setFont(editorFont(theme.defaultFont()));
+		textArea.setFont(editorFont(UIManager.getFont("defaultFont")));
 		scroll.getGutter().setLineNumberFont(textArea.getFont());
-		Color accentSelection = theme.color("Table.selectionBackground", textArea.getSelectionColor());
-		Color selectionBackground = blend(background, accentSelection, 0.26f);
-		Color selectionForeground = foreground;
-		Color gutterBackground = theme.color("TableHeader.background", background);
-		Color gutterForeground = theme.color("Label.foreground", foreground);
+
+		Color gutterBackground = uiColor(theme, "TableHeader.background", background);
+		Color gutterForeground = uiColor(theme, "Label.foreground", foreground);
+		// Use the host's real text-selection color so the selection is clearly
+		// distinct from the panel background and tracks light/dark themes.
+		Color selectionBackground = uiColor(theme, "TextArea.selectionBackground",
+				uiColor(theme, "Table.selectionBackground", textArea.getSelectionColor()));
 
 		setBackground(background);
 		scroll.setBackground(background);
@@ -86,8 +87,8 @@ public class TextQuickViewPanel extends JPanel {
 		textArea.setForeground(foreground);
 		textArea.setCaretColor(foreground);
 		textArea.setSelectionColor(selectionBackground);
-		textArea.setSelectedTextColor(selectionForeground);
-		textArea.setCurrentLineHighlightColor(blend(background, theme.color("Table.gridColor", gutterBackground), 0.35f));
+		textArea.setSelectedTextColor(foreground);
+		textArea.setCurrentLineHighlightColor(blend(background, uiColor(theme, "Table.gridColor", gutterBackground), 0.35f));
 	}
 
 	/**
@@ -203,6 +204,17 @@ public class TextQuickViewPanel extends JPanel {
 		} catch (IOException e) {
 			log.warn("Could not load RSyntaxTextArea theme: {}", resource, e);
 		}
+	}
+
+	/**
+	 * Resolve a UI color, preferring the theme scheme's explicit override and
+	 * otherwise falling back to the active look-and-feel ({@link UIManager}). A
+	 * {@code fallback} guards keys the L&amp;F does not define.
+	 */
+	private static Color uiColor(NuclrThemeScheme theme, String key, Color fallback) {
+		Color lafColor = UIManager.getColor(key);
+		Color base = lafColor != null ? lafColor : fallback;
+		return theme != null ? theme.color(key, base) : base;
 	}
 
 	/** Perceived-luminance test (ITU-R BT.601); below mid-grey counts as a dark background. */
