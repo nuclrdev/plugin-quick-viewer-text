@@ -30,8 +30,9 @@ No tab switching. No app hopping. Just hit **Ctrl+Q** and get the file in front 
 | Shell / scripts | `sh`, `bash`, `bat`, `cmd`, `ps1` |
 | XML / markup | `xml`, `svg`, `html`, `htm`, `jsp`, `csproj`, `classpath`, `project`, `factorypath` |
 | IDE / project | `vsconfig`, `firebaserc` |
-| Dotfiles | `.gitignore`, `.gitattributes`, `.meta` |
-| Container | `dockerfile` |
+| Extensionless names | `LICENSE`, `WHATSNEW`, `Dockerfile`, `mvnw`, `.gitignore`, `.gitattributes`, `.meta` |
+
+Files that match none of the above are still previewed when they *look* like text: the first 8 KB is decoded as UTF-8 and accepted only if it has no NUL bytes, matches no known binary signature, is at least 85 % printable, and is no more than 60 % whitespace. A `#!` shebang also qualifies a file, which is how extensionless scripts preview correctly.
 
 ## 📥 Installation
 
@@ -48,19 +49,20 @@ Nuclr Commander verifies the RSA-SHA256 signature against `nuclr-cert.pem` on lo
 
 ```text
 TextQuickViewProvider  → decides whether a file looks like supported text
+TextFileSupport        → extension/filename tables, binary + UTF-8 heuristics, syntax mapping
 TextQuickViewPanel     → loads content and renders it in RSyntaxTextArea
 ```
 
 ### Loading flow
 
-1. `supports(resource)` checks the extension with no I/O.
+1. `supports(resource)` matches the filename or extension; anything unknown falls through to the 8 KB text heuristic in `TextFileSupport`.
 2. `openResource(resource, cancelled)` delegates to `TextQuickViewPanel.load(...)` on a virtual thread.
 3. Loading performs:
    - file-size guard (10 MB limit)
    - binary scan of the first 8 KB
    - content read via `Path` or `InputStream`
    - EDT handoff for final UI update
-4. `setText(...)` selects the syntax style and swaps in a fresh document.
+4. `setText(...)` selects the syntax style (by extension, or by filename for things like `Dockerfile`) and swaps in a fresh document.
 
 ### Threading model
 
@@ -71,16 +73,19 @@ TextQuickViewPanel     → loads content and renders it in RSyntaxTextArea
 ## 🗂️ Source Layout
 
 ```text
-src/main/java/dev/nuclr/plugin/core/quick/viewer/
-├── TextQuickViewProvider.java   plugin entry point, format detection
+src/main/java/dev/nuclr/plugin/core/quick/viewer/text/
+├── TextQuickViewProvider.java   plugin entry point
+├── TextFileSupport.java         format detection, binary/text heuristics, syntax mapping
 └── TextQuickViewPanel.java      Swing panel, loading, syntax highlighting
 ```
+
+Unit tests for the detection heuristics live in `src/test/java/.../TextFileSupportTest.java`.
 
 ## 📚 Dependencies
 
 | Library | Version | Purpose |
 |---|---|---|
-| `dev.nuclr:platform-sdk` | `3.0.1` | Nuclr platform interfaces |
+| `dev.nuclr:platform-sdk` | `3.0.2` | Nuclr platform interfaces |
 | `rsyntaxtextarea` | `3.6.1` | Syntax-highlighted text rendering |
 
 ## 📄 License
