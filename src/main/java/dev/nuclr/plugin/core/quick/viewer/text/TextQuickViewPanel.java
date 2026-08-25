@@ -1,6 +1,7 @@
 package dev.nuclr.plugin.core.quick.viewer.text;
 
 import java.awt.BorderLayout;
+import java.awt.CardLayout;
 import java.awt.Color;
 import java.awt.Font;
 import java.io.IOException;
@@ -28,9 +29,20 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class TextQuickViewPanel extends JPanel {
 
+	/** Files up to this size are previewed whole; bigger ones get a head snippet. */
 	private static final long MAX_FILE_SIZE = 10L * 1024 * 1024; // 10 MB
+	/** How much of an oversized file to read for that snippet. */
+	private static final int SNIPPET_BYTES = 256 * 1024;
+	private static final String CARD_TEXT = "text";
+	private static final String CARD_MESSAGE = "message";
+
 	private final RSyntaxTextArea textArea;
 	private final RTextScrollPane scroll;
+	private final MessagePanel message = new MessagePanel();
+	private final TruncationBanner banner = new TruncationBanner();
+	private final JPanel textCard = new JPanel(new BorderLayout());
+	private final CardLayout cards = new CardLayout();
+	private final JPanel deck = new JPanel(cards);
 
 	public TextQuickViewPanel() {
 		super(new BorderLayout());
@@ -50,7 +62,13 @@ public class TextQuickViewPanel extends JPanel {
 		scroll.setLineNumbersEnabled(true);
 		SwingUtilities.updateComponentTreeUI(scroll);
 
-		add(scroll, BorderLayout.CENTER);
+		banner.setVisible(false);
+		textCard.add(banner, BorderLayout.NORTH);
+		textCard.add(scroll, BorderLayout.CENTER);
+
+		deck.add(textCard, CARD_TEXT);
+		deck.add(message, CARD_MESSAGE);
+		add(deck, BorderLayout.CENTER);
 	}
 
 	public void applyTheme(NuclrThemeScheme theme) {
@@ -78,6 +96,10 @@ public class TextQuickViewPanel extends JPanel {
 				uiColor(theme, "Table.selectionBackground", textArea.getSelectionColor()));
 
 		setBackground(background);
+		deck.setBackground(background);
+		textCard.setBackground(background);
+		message.applyTheme(background, foreground, textArea.getFont());
+		banner.applyTheme(background, foreground, textArea.getFont());
 		scroll.setBackground(background);
 		scroll.getViewport().setBackground(background);
 		scroll.getGutter().setBackground(gutterBackground);
@@ -88,7 +110,7 @@ public class TextQuickViewPanel extends JPanel {
 		textArea.setCaretColor(foreground);
 		textArea.setSelectionColor(selectionBackground);
 		textArea.setSelectedTextColor(foreground);
-		textArea.setCurrentLineHighlightColor(blend(background, uiColor(theme, "Table.gridColor", gutterBackground), 0.35f));
+		textArea.setCurrentLineHighlightColor(ViewerUi.blend(background, uiColor(theme, "Table.gridColor", gutterBackground), 0.35f));
 	}
 
 	/**
@@ -100,12 +122,8 @@ public class TextQuickViewPanel extends JPanel {
 	 *         (e.g. binary content detected)
 	 */
 	public boolean load(NuclrResource item, AtomicBoolean cancelled) {
-		if (item.getLength() > MAX_FILE_SIZE) {
-			log.warn("File too large for text quick view: {} ({} bytes)", item.getName(), item.getLength());
-			showMessage(item.getName(), "File is too large to display.", cancelled);
-			return true;
-		}
-
+		// Checked before the size test so an oversized *binary* still falls through
+		// to a viewer that can handle it, instead of being claimed by this one.
 		if (isBinary(item)) {
 			log.debug("Binary content detected, skipping text view: {}", item.getName());
 			return false;
@@ -113,13 +131,22 @@ public class TextQuickViewPanel extends JPanel {
 
 		if (cancelled.get()) return false;
 
+		if (item.getLength() > MAX_FILE_SIZE) {
+			return loadSnippet(item, cancelled);
+		}
+
 		String content;
 		try (var in = item.openInputStream();
 				var reader = new InputStreamReader(in, StandardCharsets.UTF_8)) {
 			content = readAll(reader, cancelled);
 		} catch (Exception e) {
 			log.error("Failed to read file: {}", item.getName(), e);
-			showMessage(item.getName(), "Error reading file: " + e.getMessage(), cancelled);
+			showMessage(MessageGlyph.Kind.ERROR,
+					"Couldn’t read this file",
+					item.getName(),
+					null,
+					e.getMessage(),
+					cancelled);
 			return true;
 		}
 
@@ -127,25 +154,79 @@ public class TextQuickViewPanel extends JPanel {
 
 		final String text = content;
 		SwingUtilities.invokeLater(() -> {
-			if (!cancelled.get()) setText(item.getName(), text);
+			if (!cancelled.get()) setText(item.getName(), text, null);
+		});
+		return true;
+	}
+
+	/**
+	 * Previews the head of a file that is too big to load whole. Reading a fixed
+	 * slice keeps the cost flat however large the file is, and a banner above the
+	 * text says how much of it is on screen.
+	 */
+	private boolean loadSnippet(NuclrResource item, AtomicBoolean cancelled) {
+		log.debug("Over the full-preview limit, showing a snippet: {} ({} bytes)",
+				item.getName(), item.getLength());
+
+		TextFileSupport.Snippet snippet;
+		try {
+			snippet = TextFileSupport.head(item, SNIPPET_BYTES);
+		} catch (Exception e) {
+			log.error("Failed to read the start of: {}", item.getName(), e);
+			showMessage(MessageGlyph.Kind.ERROR, "Couldn’t read this file", item.getName(), null,
+					e.getMessage(), cancelled);
+			return true;
+		}
+
+		if (cancelled.get()) return false;
+
+		if (snippet.text().isEmpty()) {
+			// Nothing decodable in the head of the file: fall back to the card.
+			showMessage(MessageGlyph.Kind.TOO_LARGE, "Too big to preview", item.getName(),
+					ViewerUi.humanSize(item.getLength()) + "  ·  preview limit "
+							+ ViewerUi.humanSize(MAX_FILE_SIZE),
+					"Open the file in the editor to see all of it.", cancelled);
+			return true;
+		}
+
+		String shown = "First " + ViewerUi.humanSize(snippet.bytes())
+				+ " of " + ViewerUi.humanSize(item.getLength());
+		String withLines = shown + "  ·  " + ViewerUi.count(snippet.lines()) + " lines";
+		// Longest first: the banner drops down the list to fit the pane.
+		String[] detail = {
+				withLines + "  ·  open it in the editor to see all of it",
+				withLines,
+				shown };
+		SwingUtilities.invokeLater(() -> {
+			if (!cancelled.get()) setText(item.getName(), snippet.text(), detail);
 		});
 		return true;
 	}
 
 	public void clear() {
-		SwingUtilities.invokeLater(() ->
-				textArea.setDocument(new RSyntaxDocument(SyntaxConstants.SYNTAX_STYLE_NONE)));
+		SwingUtilities.invokeLater(() -> {
+			textArea.setDocument(new RSyntaxDocument(SyntaxConstants.SYNTAX_STYLE_NONE));
+			banner.setVisible(false);
+			cards.show(deck, CARD_TEXT);
+		});
 	}
 
 	// ── Internals ─────────────────────────────────────────────────────────────
 
-	private void showMessage(String filename, String message, AtomicBoolean cancelled) {
+	private void showMessage(MessageGlyph.Kind kind, String title, String subtitle, String badge, String hint,
+			AtomicBoolean cancelled) {
 		SwingUtilities.invokeLater(() -> {
-			if (!cancelled.get()) setText(filename, message);
+			if (cancelled.get()) return;
+			// Drop any previously shown content so a stale document isn't kept alive
+			// (and doesn't flash back when the next file loads).
+			textArea.setDocument(new RSyntaxDocument(SyntaxConstants.SYNTAX_STYLE_NONE));
+			message.show(kind, title, subtitle, badge, hint);
+			cards.show(deck, CARD_MESSAGE);
 		});
 	}
 
-	private void setText(String filename, String text) {
+	/** @param truncationDetail banner text (longest variant first) when {@code text} is only a snippet, else {@code null} */
+	private void setText(String filename, String text, String[] truncationDetail) {
 		String style = TextFileSupport.syntaxStyle(filename);
 
 		// Replace the document entirely so the old token-factory pool can be GC'd.
@@ -161,6 +242,11 @@ public class TextQuickViewPanel extends JPanel {
 		textArea.setSyntaxEditingStyle(style);
 		textArea.setCaretPosition(0);
 		textArea.discardAllEdits();
+
+		if (truncationDetail != null) banner.setDetail(truncationDetail);
+		banner.setVisible(truncationDetail != null);
+		textCard.revalidate();
+		cards.show(deck, CARD_TEXT);
 	}
 
 	/**
@@ -225,15 +311,6 @@ public class TextQuickViewPanel extends JPanel {
 
 	private static Font editorFont(Font baseFont) {
 		return baseFont != null ? baseFont : new Font(Font.MONOSPACED, Font.PLAIN, 13);
-	}
-
-	private static Color blend(Color base, Color overlay, float overlayWeight) {
-		float clamped = Math.max(0f, Math.min(1f, overlayWeight));
-		float baseWeight = 1f - clamped;
-		return new Color(
-				Math.round(base.getRed() * baseWeight + overlay.getRed() * clamped),
-				Math.round(base.getGreen() * baseWeight + overlay.getGreen() * clamped),
-				Math.round(base.getBlue() * baseWeight + overlay.getBlue() * clamped));
 	}
 
 }

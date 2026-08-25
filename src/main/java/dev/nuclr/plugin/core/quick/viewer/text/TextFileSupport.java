@@ -200,6 +200,44 @@ final class TextFileSupport {
 		return path != null ? path.getFileName().toString() : path.toFile().getName();
 	}
 
+	/** The head of a file, decoded and cut at a line boundary. */
+	record Snippet(String text, int lines, long bytes) {
+	}
+
+	/**
+	 * Reads at most {@code maxBytes} of {@code resource} and decodes it as UTF-8,
+	 * dropping the trailing partial character and partial line so a preview of a
+	 * huge file never ends mid-token.
+	 */
+	static Snippet head(NuclrResource resource, int maxBytes) throws Exception {
+		byte[] head;
+		try (var in = resource.openInputStream()) {
+			head = in.readNBytes(maxBytes);
+		}
+
+		// IGNORE rather than REPORT: an incomplete character at the end is an
+		// artifact of where the slice was cut, not something wrong with the file.
+		CharsetDecoder decoder = StandardCharsets.UTF_8.newDecoder()
+				.onMalformedInput(CodingErrorAction.IGNORE)
+				.onUnmappableCharacter(CodingErrorAction.IGNORE);
+		String text = decoder.decode(ByteBuffer.wrap(head)).toString();
+
+		// Drop the trailing partial line - unless the whole slice is one line, where
+		// showing a cut line beats showing nothing.
+		int lastBreak = text.lastIndexOf('\n');
+		if (lastBreak >= 0 && lastBreak < text.length() - 1) {
+			text = text.substring(0, lastBreak + 1);
+		}
+
+		int lines = 0;
+		for (int i = 0; i < text.length(); i++) {
+			if (text.charAt(i) == '\n') lines++;
+		}
+		if (!text.isEmpty() && text.charAt(text.length() - 1) != '\n') lines++;
+
+		return new Snippet(text, lines, text.getBytes(StandardCharsets.UTF_8).length);
+	}
+
 	private static byte[] readSample(NuclrResource resource) {
 		if (resource == null) {
 			return null;

@@ -19,7 +19,7 @@ import lombok.extern.slf4j.Slf4j;
  * allocation-free.
  *
  * <p>
- * Priority 50 ensures that specialised providers (image, PDF, â€¦) with lower
+ * Priority 50 ensures that specialised providers (image, PDF, ...) with lower
  * priority numbers are tried first when multiple providers could match the same
  * extension.
  */
