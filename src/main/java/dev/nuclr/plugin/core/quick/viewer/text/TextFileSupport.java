@@ -113,20 +113,45 @@ final class TextFileSupport {
 	private TextFileSupport() {
 	}
 
+	/**
+	 * Whether this plugin should preview {@code resource}.
+	 *
+	 * <p>Selection is by name first, so resources with no local file — S3 and GCS objects, GitHub
+	 * sources, anything else that only offers a stream — are previewed on the same terms as local
+	 * ones.
+	 *
+	 * <p>Sniffing the content is the last resort, and it is deliberately limited to resources that
+	 * do have a local file. On a remote resource {@link NuclrResource#openInputStream} may fetch the
+	 * whole object to answer for its first 8 KB, and selection runs for every item the user moves
+	 * onto: an extension-less name is not worth downloading a multi-gigabyte object to reject.
+	 *
+	 * @param resource the resource being selected
+	 * @return {@code true} when this plugin can preview it
+	 */
 	static boolean supports(NuclrResource resource) {
-		
-		var path = resource.getPath();
-		if (path == null) {
+
+		if (resource == null || resource.isFolder() || !resource.isReadable()) {
 			return false;
 		}
-		if (isSvg(path)) {
+
+		String name = name(resource);
+		if (name == null || name.isBlank() || isSvg(name)) {
 			return false;
 		}
-		return matches(resource.getName()) 
-				|| matches(getName(path))
-				|| matchesExtension(extension(getName(path)))
-				|| hasShebang(resource, path)
-				|| looksLikeUtf8Text(resource, path);
+		if (matches(name) || matchesExtension(extension(name))) {
+			return true;
+		}
+
+		Path path = resource.getPath();
+		return path != null && (hasShebang(resource) || looksLikeUtf8Text(resource));
+	}
+
+	/** The resource's own name, falling back to its file name for resources that carry no name. */
+	private static String name(NuclrResource resource) {
+		if (resource.getName() != null && !resource.getName().isBlank()) {
+			return resource.getName();
+		}
+		return getName(resource.getPath());
 	}
 
 	static boolean matches(String filename) {
@@ -145,7 +170,7 @@ final class TextFileSupport {
 		return TEXT_EXTENSIONS.contains(extension.toLowerCase()); 
 	}
 
-	static boolean looksLikeUtf8Text(NuclrResource resource, Path path) {
+	static boolean looksLikeUtf8Text(NuclrResource resource) {
 		byte[] sample = readSample(resource);
 		if (sample == null) {
 			return false;
@@ -187,17 +212,26 @@ final class TextFileSupport {
 		return dot > 0 ? filename.substring(dot + 1).toLowerCase() : "";
 	}
 
-	private static boolean hasShebang(NuclrResource resource, Path path) {
+	private static boolean hasShebang(NuclrResource resource) {
 		byte[] sample = readSample(resource);
 		return sample != null && sample.length >= 2 && sample[0] == '#' && sample[1] == '!';
 	}
 
-	private static boolean isSvg(Path resource) {
-		return "svg".equals(extension(getName(resource)));
+	private static boolean isSvg(String filename) {
+		return "svg".equals(extension(filename));
 	}
-	
+
+	/**
+	 * The file name of a path, or {@code null} when there is no path.
+	 *
+	 * @param path the path, possibly {@code null}
+	 * @return the file name, or {@code null}
+	 */
 	static String getName(Path path) {
-		return path != null ? path.getFileName().toString() : path.toFile().getName();
+		if (path == null) {
+			return null;
+		}
+		return path.getFileName() != null ? path.getFileName().toString() : path.toString();
 	}
 
 	/** The head of a file, decoded and cut at a line boundary. */

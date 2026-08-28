@@ -37,6 +37,46 @@ class TextFileSupportTest {
 	}
 
 	@Test
+	void supportsAStreamOnlyResourceSelectedByName() {
+		// An S3 or GCS object: no local file, name and stream only.
+		assertTrue(TextFileSupport.supports(streamOnly("notes.txt", "hello\n")));
+	}
+
+	@Test
+	void rejectsAStreamOnlyResourceWithoutReadingIt() {
+		// Sniffing a remote resource can mean downloading it in full, so an extension-less
+		// name is rejected outright rather than opened.
+		var opened = new java.util.concurrent.atomic.AtomicBoolean();
+		NuclrResource resource = new NuclrResource(null) {
+			@Override
+			public java.io.InputStream openInputStream(java.nio.file.OpenOption... options) {
+				opened.set(true);
+				return new java.io.ByteArrayInputStream("plain text\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+			}
+		};
+		resource.setName("release-notes");
+
+		assertFalse(TextFileSupport.supports(resource));
+		assertFalse(opened.get(), "a stream-only resource must not be opened during selection");
+	}
+
+	@Test
+	void rejectsSvgByNameWhenThereIsNoPath() {
+		assertFalse(TextFileSupport.supports(streamOnly("logo.svg", "<svg/>")));
+	}
+
+	@Test
+	void rejectsFoldersAndUnreadableResources() {
+		var folder = streamOnly("logs.txt", "");
+		folder.setFolder(true);
+		assertFalse(TextFileSupport.supports(folder));
+
+		var unreadable = streamOnly("secret.txt", "");
+		unreadable.setReadable(false);
+		assertFalse(TextFileSupport.supports(unreadable));
+	}
+
+	@Test
 	void headCutsAtTheLastCompleteLine(@TempDir Path tempDir) throws Exception {
 		Path file = tempDir.resolve("big.log");
 		Files.writeString(file, "alpha\nbravo\ncharlie\ndelta\n");
@@ -93,6 +133,18 @@ class TextFileSupportTest {
 		assertEquals("", snippet.text());
 		assertEquals(0, snippet.lines());
 		assertEquals(0, snippet.bytes());
+	}
+
+	/** A resource with no local file, exactly as a remote panel supplies it. */
+	private static NuclrResource streamOnly(String name, String content) {
+		NuclrResource resource = new NuclrResource(null) {
+			@Override
+			public java.io.InputStream openInputStream(java.nio.file.OpenOption... options) {
+				return new java.io.ByteArrayInputStream(content.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+			}
+		};
+		resource.setName(name);
+		return resource;
 	}
 
 	private static NuclrResource resource(Path path) {
