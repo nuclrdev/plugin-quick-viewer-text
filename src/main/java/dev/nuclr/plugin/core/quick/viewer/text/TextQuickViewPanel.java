@@ -92,8 +92,12 @@ public class TextQuickViewPanel extends JPanel {
 		Color gutterForeground = uiColor(theme, "Label.foreground", foreground);
 		// Use the host's real text-selection color so the selection is clearly
 		// distinct from the panel background and tracks light/dark themes.
-		Color selectionBackground = uiColor(theme, "TextArea.selectionBackground",
-				uiColor(theme, "Table.selectionBackground", textArea.getSelectionColor()));
+		Color selectionBackground = ViewerUi.ensureSelectionContrast(background,
+				uiColor(theme, "TextArea.selectionBackground",
+						uiColor(theme, "Table.selectionBackground", textArea.getSelectionColor())));
+		Color selectionForeground = ViewerUi.readableSelectionForeground(selectionBackground,
+				uiColor(theme, "TextArea.selectionForeground",
+						uiColor(theme, "Table.selectionForeground", foreground)), foreground);
 
 		setBackground(background);
 		deck.setBackground(background);
@@ -109,7 +113,8 @@ public class TextQuickViewPanel extends JPanel {
 		textArea.setForeground(foreground);
 		textArea.setCaretColor(foreground);
 		textArea.setSelectionColor(selectionBackground);
-		textArea.setSelectedTextColor(foreground);
+		textArea.setSelectedTextColor(selectionForeground);
+		textArea.setUseSelectedTextColor(true);
 		textArea.setCurrentLineHighlightColor(ViewerUi.blend(background, uiColor(theme, "Table.gridColor", gutterBackground), 0.35f));
 	}
 
