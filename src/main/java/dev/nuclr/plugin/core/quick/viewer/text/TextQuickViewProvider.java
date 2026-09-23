@@ -1,5 +1,7 @@
 package dev.nuclr.plugin.core.quick.viewer.text;
 
+import java.awt.image.BufferedImage;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.swing.JComponent;
@@ -25,6 +27,10 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class TextQuickViewProvider implements QuickViewNuclrPlugin {
+
+	/** Read for a thumbnail: far more than a page has room to show. */
+	private static final int THUMBNAIL_BYTES = 16 * 1024;
+	private static final int THUMBNAIL_LINES = 150;
 
 	private NuclrPluginContext context;
 	private TextQuickViewPanel panel;
@@ -78,6 +84,34 @@ public class TextQuickViewProvider implements QuickViewNuclrPlugin {
 		currentCancelled = cancelled;
 		panel();
 		return panel.load(resource, cancelled);
+	}
+
+	@Override
+	public boolean supportsThumbnails() {
+		return true;
+	}
+
+	/** The head of the file, as a page of monospaced text. */
+	@Override
+	public BufferedImage thumbnail(NuclrResource resource, int maxWidth, int maxHeight, AtomicBoolean cancelled) {
+		if (maxWidth <= 0 || maxHeight <= 0 || !supports(resource)) {
+			return null;
+		}
+		try {
+			String text = TextFileSupport.head(resource, THUMBNAIL_BYTES).text();
+			// Same test the panel applies: a NUL byte means binary, which is not ours to draw.
+			if (text.isBlank() || text.indexOf('\0') >= 0 || (cancelled != null && cancelled.get())) {
+				return null;
+			}
+			List<PageThumbnail.Line> lines = text.lines()
+					.limit(THUMBNAIL_LINES)
+					.map(PageThumbnail.Line::mono)
+					.toList();
+			return PageThumbnail.render(lines, maxWidth, maxHeight, cancelled);
+		} catch (Exception e) {
+			log.debug("No thumbnail for {}: {}", resource.getName(), e.toString());
+			return null;
+		}
 	}
 
 	@Override

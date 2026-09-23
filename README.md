@@ -34,6 +34,12 @@ No tab switching. No app hopping. Just hit **Ctrl+Q** and get the file in front 
 
 Files that match none of the above are still previewed when they *look* like text: the first 8 KB is decoded as UTF-8 and accepted only if it has no NUL bytes, matches no known binary signature, is at least 85 % printable, and is no more than 60 % whitespace. A `#!` shebang also qualifies a file, which is how extensionless scripts preview correctly.
 
+## 🖼️ Thumbnail
+
+The head of the file (16 KB) as a page of monospaced text; binary content has no thumbnail. At icon sizes the lines are drawn as grey bars, the way a document preview looks.
+
+It implements the platform SDK 6.0.0 thumbnail methods, so plugins that want a picture of a file - attachment chips in AI Projects, for one - get it through Commander.
+
 ## 📥 Installation
 
 Copy the signed plugin archive and detached signature into the Nuclr Commander `plugins/` directory:
@@ -85,7 +91,7 @@ Unit tests for the detection heuristics live in `src/test/java/.../TextFileSuppo
 
 | Library | Version | Purpose |
 |---|---|---|
-| `dev.nuclr:platform-sdk` | `3.0.2` | Nuclr platform interfaces |
+| `dev.nuclr:platform-sdk` | `6.0.0` | Nuclr platform interfaces |
 | `rsyntaxtextarea` | `3.6.1` | Syntax-highlighted text rendering |
 
 ## 📄 License
