@@ -29,6 +29,31 @@ class TextFileSupportTest {
 	}
 
 	@Test
+	void utf16WithByteOrderMarkIsTextAndDecodes(@TempDir Path tempDir) throws Exception {
+		// The e2e fixture's bytes: FF FE BOM, then "hi\n" in UTF-16LE - NUL bytes throughout.
+		Path file = tempDir.resolve("UTF16LE");
+		Files.write(file, new byte[] { (byte) 0xFF, (byte) 0xFE, 'h', 0, 'i', 0, '\n', 0 });
+
+		assertTrue(TextFileSupport.supports(resource(file)), "an extension-less UTF-16 file is text");
+		assertEquals("hi\n", TextFileSupport.head(resource(file), 8192).text());
+	}
+
+	@Test
+	void byteOrderMarksAreRecognised() {
+		assertEquals("UTF-16LE", TextFileSupport.bom(new byte[] { (byte) 0xFF, (byte) 0xFE, 'a', 0 }).charset().name());
+		assertEquals("UTF-16BE", TextFileSupport.bom(new byte[] { (byte) 0xFE, (byte) 0xFF, 0, 'a' }).charset().name());
+		assertEquals("UTF-32LE", TextFileSupport.bom(new byte[] { (byte) 0xFF, (byte) 0xFE, 0, 0 }).charset().name());
+		assertEquals(3, TextFileSupport.bom(new byte[] { (byte) 0xEF, (byte) 0xBB, (byte) 0xBF, 'a' }).length());
+		assertNull(TextFileSupport.bom("plain".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+	}
+
+	@Test
+	void utf8ByteOrderMarkIsDroppedFromTheText() throws Exception {
+		byte[] bytes = { (byte) 0xEF, (byte) 0xBB, (byte) 0xBF, 'o', 'k' };
+		assertEquals("ok", TextFileSupport.decode(bytes));
+	}
+
+	@Test
 	void rejectsKnownBinarySignature(@TempDir Path tempDir) throws Exception {
 		Path file = tempDir.resolve("archive");
 		Files.write(file, new byte[] { 'P', 'K', 3, 4, 20, 0 });

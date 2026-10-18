@@ -3,6 +3,7 @@ package dev.nuclr.plugin.core.quick.viewer.text;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.CharacterCodingException;
+import java.nio.charset.Charset;
 import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
@@ -170,12 +171,56 @@ final class TextFileSupport {
 		return TEXT_EXTENSIONS.contains(extension.toLowerCase()); 
 	}
 
+	/**
+	 * A byte-order mark at the start of a file: the encoding it announces and how many bytes it
+	 * takes. UTF-16 and UTF-32 text is full of NUL bytes, so the mark is what tells it apart from
+	 * binary content - check it before any NUL-byte test.
+	 */
+	record Bom(Charset charset, int length) {
+	}
+
+	/** The byte-order mark {@code head} starts with, or {@code null}. UTF-32 LE is tested before UTF-16 LE. */
+	static Bom bom(byte[] head) {
+		if (head == null) {
+			return null;
+		}
+		if (startsWith(head, 0xFF, 0xFE, 0x00, 0x00)) {
+			return new Bom(Charset.forName("UTF-32LE"), 4);
+		}
+		if (startsWith(head, 0x00, 0x00, 0xFE, 0xFF)) {
+			return new Bom(Charset.forName("UTF-32BE"), 4);
+		}
+		if (startsWith(head, 0xEF, 0xBB, 0xBF)) {
+			return new Bom(StandardCharsets.UTF_8, 3);
+		}
+		if (startsWith(head, 0xFF, 0xFE)) {
+			return new Bom(StandardCharsets.UTF_16LE, 2);
+		}
+		if (startsWith(head, 0xFE, 0xFF)) {
+			return new Bom(StandardCharsets.UTF_16BE, 2);
+		}
+		return null;
+	}
+
+	/** Decodes {@code bytes} as the encoding its byte-order mark announces, else UTF-8; the mark itself is dropped. */
+	static String decode(byte[] bytes) throws CharacterCodingException {
+		Bom bom = bom(bytes);
+		Charset charset = bom == null ? StandardCharsets.UTF_8 : bom.charset();
+		int skip = bom == null ? 0 : bom.length();
+		// IGNORE rather than REPORT: an incomplete character at the end is an
+		// artifact of where a slice was cut, not something wrong with the file.
+		CharsetDecoder decoder = charset.newDecoder()
+				.onMalformedInput(CodingErrorAction.IGNORE)
+				.onUnmappableCharacter(CodingErrorAction.IGNORE);
+		return decoder.decode(ByteBuffer.wrap(bytes, skip, bytes.length - skip)).toString();
+	}
+
 	static boolean looksLikeUtf8Text(NuclrResource resource) {
 		byte[] sample = readSample(resource);
 		if (sample == null) {
 			return false;
 		}
-		if (sample.length == 0) {
+		if (sample.length == 0 || bom(sample) != null) {
 			return true;
 		}
 		if (matchesBinarySignature(sample) || containsNullByte(sample)) {
@@ -239,9 +284,9 @@ final class TextFileSupport {
 	}
 
 	/**
-	 * Reads at most {@code maxBytes} of {@code resource} and decodes it as UTF-8,
-	 * dropping the trailing partial character and partial line so a preview of a
-	 * huge file never ends mid-token.
+	 * Reads at most {@code maxBytes} of {@code resource} and decodes it - as UTF-8 unless a
+	 * byte-order mark says otherwise - dropping the trailing partial character and partial line
+	 * so a preview of a huge file never ends mid-token.
 	 */
 	static Snippet head(NuclrResource resource, int maxBytes) throws Exception {
 		byte[] head;
@@ -249,12 +294,7 @@ final class TextFileSupport {
 			head = in.readNBytes(maxBytes);
 		}
 
-		// IGNORE rather than REPORT: an incomplete character at the end is an
-		// artifact of where the slice was cut, not something wrong with the file.
-		CharsetDecoder decoder = StandardCharsets.UTF_8.newDecoder()
-				.onMalformedInput(CodingErrorAction.IGNORE)
-				.onUnmappableCharacter(CodingErrorAction.IGNORE);
-		String text = decoder.decode(ByteBuffer.wrap(head)).toString();
+		String text = decode(head);
 
 		// Drop the trailing partial line - unless the whole slice is one line, where
 		// showing a cut line beats showing nothing.

@@ -4,11 +4,13 @@ import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Color;
 import java.awt.Font;
+import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.swing.JPanel;
@@ -141,8 +143,8 @@ public class TextQuickViewPanel extends JPanel {
 		}
 
 		String content;
-		try (var in = item.openInputStream();
-				var reader = new InputStreamReader(in, StandardCharsets.UTF_8)) {
+		try (var in = new BufferedInputStream(item.openInputStream());
+				var reader = textReader(in)) {
 			content = readAll(reader, cancelled);
 		} catch (Exception e) {
 			log.error("Failed to read file: {}", item.getName(), e);
@@ -255,13 +257,32 @@ public class TextQuickViewPanel extends JPanel {
 	}
 
 	/**
-	 * Scans the first 8 KB for null bytes. Null bytes reliably indicate binary
-	 * content because they are not valid in any text encoding.
+	 * A reader in the encoding the stream's byte-order mark announces (UTF-8 when there is none),
+	 * positioned after the mark. {@code in} must support mark/reset.
+	 */
+	private static Reader textReader(BufferedInputStream in) throws IOException {
+		in.mark(4);
+		byte[] head = in.readNBytes(4);
+		in.reset();
+		TextFileSupport.Bom bom = TextFileSupport.bom(head);
+		if (bom == null) {
+			return new InputStreamReader(in, StandardCharsets.UTF_8);
+		}
+		in.skipNBytes(bom.length());
+		return new InputStreamReader(in, bom.charset());
+	}
+
+	/**
+	 * Scans the first 8 KB for null bytes. Null bytes reliably indicate binary content in an
+	 * unmarked file; UTF-16 and UTF-32 text is full of them, so a byte-order mark settles it first.
 	 */
 	private static boolean isBinary(NuclrResource item) {
 		byte[] buf = new byte[8192];
 		try (InputStream in = item.openInputStream()) {
-			int read = in.read(buf);
+			int read = in.readNBytes(buf, 0, buf.length);
+			if (TextFileSupport.bom(Arrays.copyOf(buf, read)) != null) {
+				return false;
+			}
 			for (int i = 0; i < read; i++) {
 				if (buf[i] == 0) return true;
 			}
