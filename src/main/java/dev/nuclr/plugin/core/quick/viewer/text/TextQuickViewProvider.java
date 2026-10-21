@@ -1,5 +1,7 @@
 package dev.nuclr.plugin.core.quick.viewer.text;
 
+import static dev.nuclr.plugin.core.quick.viewer.text.Messages.tr;
+
 import java.awt.image.BufferedImage;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -49,6 +51,9 @@ public class TextQuickViewProvider implements QuickViewNuclrPlugin {
 
 	@Override
 	public void preinit(NuclrPluginContext context) {
+		if (context != null) {
+			Messages.use(context.getLocale());
+		}
 		this.context = context;
 		applyTheme(context != null ? context.getTheme() : null);
 	}
@@ -167,7 +172,7 @@ public class TextQuickViewProvider implements QuickViewNuclrPlugin {
 
 	@Override
 	public String getWindowTitle() {
-		return "Quick View: " + (currentResource != null ? currentResource.getName() : "");
+		return tr("window.title", currentResource != null ? currentResource.getName() : "");
 	}
 	
 	

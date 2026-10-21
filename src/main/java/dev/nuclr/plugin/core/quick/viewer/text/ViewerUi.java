@@ -1,5 +1,7 @@
 package dev.nuclr.plugin.core.quick.viewer.text;
 
+import static dev.nuclr.plugin.core.quick.viewer.text.Messages.tr;
+
 import java.awt.Color;
 import java.awt.Font;
 import java.util.Locale;
@@ -19,8 +21,8 @@ final class ViewerUi {
 
 	/** Formats a byte count the way a file manager would: 1.4 KB, 42.3 MB, 1.2 GB. */
 	static String humanSize(long bytes) {
-		if (bytes < 1024) return bytes + " B";
-		String[] units = { "KB", "MB", "GB", "TB" };
+		if (bytes < 1024) return tr("size.bytes", String.valueOf(bytes));
+		String[] units = { tr("size.kb"), tr("size.mb"), tr("size.gb"), tr("size.tb") };
 		double value = bytes;
 		int unit = -1;
 		while (value >= 1024 && unit < units.length - 1) {

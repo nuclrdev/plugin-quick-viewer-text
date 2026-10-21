@@ -1,5 +1,7 @@
 package dev.nuclr.plugin.core.quick.viewer.text;
 
+import static dev.nuclr.plugin.core.quick.viewer.text.Messages.tr;
+
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Font;
@@ -17,7 +19,7 @@ import javax.swing.JPanel;
 class TruncationBanner extends JPanel {
 
 	private final MessageGlyph glyph = new MessageGlyph(MessageGlyph.Kind.TOO_LARGE, 20);
-	private final JLabel title = new JLabel("Preview truncated");
+	private final JLabel title = new JLabel(tr("snippet.banner.title"));
 	private final JLabel detail = new JLabel();
 	private final RoundedPanel strip = new RoundedPanel(12);
 	private static final int STRIP_GAP = 10;

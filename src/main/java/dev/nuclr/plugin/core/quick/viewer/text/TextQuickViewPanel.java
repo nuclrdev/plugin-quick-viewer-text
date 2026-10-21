@@ -1,5 +1,7 @@
 package dev.nuclr.plugin.core.quick.viewer.text;
 
+import static dev.nuclr.plugin.core.quick.viewer.text.Messages.tr;
+
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Color;
@@ -149,7 +151,7 @@ public class TextQuickViewPanel extends JPanel {
 		} catch (Exception e) {
 			log.error("Failed to read file: {}", item.getName(), e);
 			showMessage(MessageGlyph.Kind.ERROR,
-					"Couldn’t read this file",
+					tr("error.read.title"),
 					item.getName(),
 					null,
 					e.getMessage(),
@@ -180,7 +182,7 @@ public class TextQuickViewPanel extends JPanel {
 			snippet = TextFileSupport.head(item, SNIPPET_BYTES);
 		} catch (Exception e) {
 			log.error("Failed to read the start of: {}", item.getName(), e);
-			showMessage(MessageGlyph.Kind.ERROR, "Couldn’t read this file", item.getName(), null,
+			showMessage(MessageGlyph.Kind.ERROR, tr("error.read.title"), item.getName(), null,
 					e.getMessage(), cancelled);
 			return true;
 		}
@@ -189,19 +191,17 @@ public class TextQuickViewPanel extends JPanel {
 
 		if (snippet.text().isEmpty()) {
 			// Nothing decodable in the head of the file: fall back to the card.
-			showMessage(MessageGlyph.Kind.TOO_LARGE, "Too big to preview", item.getName(),
-					ViewerUi.humanSize(item.getLength()) + "  ·  preview limit "
-							+ ViewerUi.humanSize(MAX_FILE_SIZE),
-					"Open the file in the editor to see all of it.", cancelled);
+			showMessage(MessageGlyph.Kind.TOO_LARGE, tr("too.large.title"), item.getName(),
+					tr("too.large.detail", ViewerUi.humanSize(item.getLength()), ViewerUi.humanSize(MAX_FILE_SIZE)),
+					tr("too.large.hint"), cancelled);
 			return true;
 		}
 
-		String shown = "First " + ViewerUi.humanSize(snippet.bytes())
-				+ " of " + ViewerUi.humanSize(item.getLength());
-		String withLines = shown + "  ·  " + ViewerUi.count(snippet.lines()) + " lines";
+		String shown = tr("snippet.shown", ViewerUi.humanSize(snippet.bytes()), ViewerUi.humanSize(item.getLength()));
+		String withLines = tr("snippet.with.lines", shown, ViewerUi.count(snippet.lines()));
 		// Longest first: the banner drops down the list to fit the pane.
 		String[] detail = {
-				withLines + "  ·  open it in the editor to see all of it",
+				tr("snippet.with.hint", withLines),
 				withLines,
 				shown };
 		SwingUtilities.invokeLater(() -> {
