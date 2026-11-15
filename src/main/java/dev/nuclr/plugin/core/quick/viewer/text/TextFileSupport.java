@@ -37,7 +37,7 @@ final class TextFileSupport {
 			"c", "cpp", "h", "hpp",
 			"cs", "go", "rs", "php",
 			"kt", "scala", "groovy", "gradle",
-			"lua", "perl", "pl", "dart", "sql",
+			"lua", "perl", "pl", "dart", "sql", "gd",
 			"mf",
 			// Crypto
 			"pub", "ppk", "pem",
@@ -94,6 +94,8 @@ final class TextFileSupport {
 			Map.entry("kt",          SyntaxConstants.SYNTAX_STYLE_KOTLIN),
 			Map.entry("scala",       SyntaxConstants.SYNTAX_STYLE_SCALA),
 			Map.entry("lua",         SyntaxConstants.SYNTAX_STYLE_LUA),
+			// Registered by Commander; an older one without it shows plain text.
+			Map.entry("gd",          "text/gdscript"),
 			Map.entry("perl",        SyntaxConstants.SYNTAX_STYLE_PERL),
 			Map.entry("pl",          SyntaxConstants.SYNTAX_STYLE_PERL),
 			Map.entry("dart",        SyntaxConstants.SYNTAX_STYLE_DART),
